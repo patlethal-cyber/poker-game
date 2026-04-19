@@ -1,0 +1,212 @@
+/* Card styling - Pure CSS playing cards */
+
+.card {
+    width: 64px;
+    height: 92px;
+    border-radius: 8px;
+    position: relative;
+    perspective: 600px;
+    cursor: default;
+    flex-shrink: 0;
+}
+
+.card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.5s ease;
+    transform-style: preserve-3d;
+}
+
+.card.face-down .card-inner {
+    transform: rotateY(180deg);
+}
+
+.card.dealing {
+    animation: cardDeal 0.4s ease-out forwards;
+}
+
+/* Card front */
+.card-front {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    background: var(--card-white);
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.card-front::before {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 6px;
+    pointer-events: none;
+}
+
+/* Card back */
+.card-back {
+    position: absolute;
+    inset: 0;
+    backface-visibility: hidden;
+    transform: rotateY(180deg);
+    background: linear-gradient(135deg, #1a3a5c 0%, #2c5f8a 50%, #1a3a5c 100%);
+    border-radius: 8px;
+    border: 1px solid #0f2944;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    overflow: hidden;
+}
+
+.card-back::before {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border: 2px solid rgba(255,255,255,0.15);
+    border-radius: 5px;
+}
+
+.card-back::after {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    background:
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 5px,
+            rgba(255,255,255,0.05) 5px,
+            rgba(255,255,255,0.05) 10px
+        ),
+        repeating-linear-gradient(
+            -45deg,
+            transparent,
+            transparent 5px,
+            rgba(255,255,255,0.05) 5px,
+            rgba(255,255,255,0.05) 10px
+        );
+    border-radius: 4px;
+}
+
+/* Suit colors */
+.card.red .card-front { color: #cc2222; }
+.card.black .card-front { color: #222222; }
+
+/* Corner ranks */
+.card-corner {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+}
+
+.card-corner-top {
+    top: 4px;
+    left: 5px;
+}
+
+.card-corner-bottom {
+    bottom: 4px;
+    right: 5px;
+    transform: rotate(180deg);
+}
+
+.card-corner .rank {
+    font-size: 14px;
+    font-weight: 800;
+    font-family: 'Georgia', serif;
+}
+
+.card-corner .suit {
+    font-size: 11px;
+    margin-top: -1px;
+}
+
+/* Center suit display */
+.card-center {
+    font-size: 28px;
+    line-height: 1;
+}
+
+/* Face card styling */
+.card.face-card .card-center {
+    font-size: 22px;
+    font-weight: 800;
+    font-family: 'Georgia', serif;
+    opacity: 0.8;
+}
+
+.card.face-card .card-center .face-suit {
+    font-size: 14px;
+    display: block;
+    margin-top: 2px;
+}
+
+/* Small cards for showing in other player seats */
+.card.small {
+    width: 44px;
+    height: 64px;
+}
+
+.card.small .card-corner .rank {
+    font-size: 10px;
+}
+
+.card.small .card-corner .suit {
+    font-size: 8px;
+}
+
+.card.small .card-center {
+    font-size: 18px;
+}
+
+.card.small .card-corner-top {
+    top: 3px;
+    left: 3px;
+}
+
+.card.small .card-corner-bottom {
+    bottom: 3px;
+    right: 3px;
+}
+
+/* Micro cards for showdown display */
+.card.micro {
+    width: 36px;
+    height: 52px;
+}
+
+.card.micro .card-corner { display: none; }
+.card.micro .card-center { font-size: 16px; }
+.card.micro .card-front {
+    justify-content: center;
+    gap: 0;
+}
+.card.micro .card-rank-top {
+    font-size: 10px;
+    font-weight: 800;
+    position: absolute;
+    top: 2px;
+    left: 4px;
+    font-family: 'Georgia', serif;
+}
+
+/* Card hover effect for player's own cards */
+.player-seat.human .player-cards .card:hover {
+    transform: translateY(-4px);
+    transition: transform 0.15s ease;
+}
+
+/* Card fold animation */
+.card.folding {
+    transition: opacity 0.3s, transform 0.3s;
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+}
