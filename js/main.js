@@ -182,14 +182,22 @@ class PokerApp {
     }
 
     _buildPlayerList(count) {
-        const AI_POOL = ['Shark', 'Maniac', 'Rock', 'Fish', 'Wildcard'];
+        const STRATEGY_POOL = ['Shark', 'Maniac', 'Rock', 'Fish', 'Wildcard'];
+        const NAME_POOL = [
+            'Alex', 'Maya', 'Remy', 'Jin', 'Sam', 'Priya', 'Kai', 'Nina', 'Oscar',
+            'Leo', 'Ivy', 'Theo', 'Zoe', 'Dana', 'Ravi', 'Mila', 'Eli', 'Luna'
+        ];
+        const shuffledNames = [...NAME_POOL].sort(() => Math.random() - 0.5);
+        const aiCount = count - 1;
+        const strategies = [];
+        for (let i = 0; i < aiCount; i++) {
+            strategies.push(STRATEGY_POOL[i % STRATEGY_POOL.length]);
+        }
+        strategies.sort(() => Math.random() - 0.5);
+
         const players = [{ name: 'You', isHuman: true, strategy: null }];
-        const counts = {};
-        for (let i = 0; i < count - 1; i++) {
-            const strat = AI_POOL[i % AI_POOL.length];
-            counts[strat] = (counts[strat] || 0) + 1;
-            const name = counts[strat] === 1 ? strat : `${strat} ${counts[strat]}`;
-            players.push({ name, isHuman: false, strategy: strat });
+        for (let i = 0; i < aiCount; i++) {
+            players.push({ name: shuffledNames[i], isHuman: false, strategy: strategies[i] });
         }
         return players;
     }
@@ -347,7 +355,7 @@ class PokerApp {
         });
 
         g.on('handWonUncontested', (data) => {
-            ml.show(`${data.winner.name} wins ${formatChips(data.amount)}!`, 3000);
+            ml.show(`${this._winVerbName(data.winner)} ${formatChips(data.amount)}!`, 3000);
             tr.updatePlayer(data.winner);
             tr.showWinner(data.winner.seatIndex);
             audio.play('win');
@@ -375,7 +383,7 @@ class PokerApp {
                 const player = g.players[award.playerIndex];
                 tr.updatePlayer(player);
                 tr.showWinner(award.playerIndex);
-                ml.show(`${player.name} wins ${formatChips(award.amount)} with ${data.evaluations.find(e => e.playerIndex === award.playerIndex)?.eval.name || 'best hand'}!`, 6000);
+                ml.show(`${this._winVerbName(player)} ${formatChips(award.amount)} with ${data.evaluations.find(e => e.playerIndex === award.playerIndex)?.eval.name || 'best hand'}!`, 6000);
             }
             audio.play('win');
             this._updateGameInfo();
@@ -407,11 +415,15 @@ class PokerApp {
         });
 
         g.on('gameOver', (data) => {
-            if (data.winner) {
-                ml.show(`Game Over! ${data.winner.name} wins the tournament!`, 0);
-            } else {
-                ml.show('Game Over!', 0);
-            }
+            const overlay = document.getElementById('showdown-overlay');
+            overlay?.classList.remove('visible', 'fading');
+            tr.setActivePlayer(null);
+
+            const winMsg = data.winner
+                ? `Game Over! ${this._winVerbName(data.winner)} the tournament!`
+                : 'Game Over!';
+            ml.show(winMsg, 0);
+
             setTimeout(() => {
                 this._showGameOverStats();
                 document.getElementById('start-screen').style.display = '';
@@ -480,7 +492,11 @@ class PokerApp {
                 ${standingsHtml}
             </div>
         `;
-        statsEl.style.display = '';
+        statsEl.style.display = 'block';
+    }
+
+    _winVerbName(player) {
+        return player.isHuman ? 'You win' : `${player.name} wins`;
     }
 
     _updateGameInfo() {

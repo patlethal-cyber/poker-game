@@ -83,6 +83,7 @@ export class Game extends EventEmitter {
         this.emit('gameStart', { players: this.players });
 
         while (this.isRunning) {
+            this._markBustedPlayers();
             const notSittingOut = this.players.filter(p => !p.isSittingOut);
 
             if (notSittingOut.length <= 1 || this.humanPlayer.isSittingOut || this.humanPlayer.chips <= 0) {
@@ -94,13 +95,17 @@ export class Game extends EventEmitter {
         }
 
         this.isRunning = false;
-        for (const p of this.players) {
-            if (p.chips <= 0) p.isSittingOut = true;
-        }
+        this._markBustedPlayers();
         const remaining = this.players.filter(p => !p.isSittingOut);
         this.emit('gameOver', {
             winner: remaining.length === 1 ? remaining[0] : null
         });
+    }
+
+    _markBustedPlayers() {
+        for (const p of this.players) {
+            if (p.chips <= 0 && !p.isSittingOut) p.isSittingOut = true;
+        }
     }
 
     stopGame() {
@@ -367,6 +372,7 @@ export class Game extends EventEmitter {
                 amount
             });
 
+            this._markBustedPlayers();
             this._advanceDealer();
             this.phase = PHASES.WAITING;
             return true;
@@ -416,6 +422,7 @@ export class Game extends EventEmitter {
 
         this.emit('hideShowdown');
 
+        this._markBustedPlayers();
         this._advanceDealer();
         this.phase = PHASES.WAITING;
 

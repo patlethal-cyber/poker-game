@@ -51,6 +51,7 @@
 @media (max-width: 899px)  { :root { --scale: 0.82; } }
 @media (max-width: 699px)  { :root { --scale: 0.74; } }
 @media (max-width: 499px)  { :root { --scale: 0.64; } }
+@media (max-width: 359px)  { :root { --scale: 0.56; } }
 
 html, body {
     height: 100%;
@@ -117,6 +118,31 @@ button, select, input {
     z-index: 100;
 }
 
+@media (max-width: 599px) {
+    #game-info {
+        right: 104px;
+        gap: 6px;
+        font-size: 11px;
+    }
+    #game-info span {
+        padding: 3px 7px;
+        border-radius: 9px;
+        white-space: nowrap;
+    }
+}
+@media (max-width: 359px) {
+    #game-info {
+        left: 8px;
+        right: 104px;
+        gap: 4px;
+        font-size: 10px;
+        overflow: hidden;
+        flex-wrap: nowrap;
+    }
+    #game-info span { padding: 2px 5px; }
+    #game-info span:nth-child(3) { display: none; }
+}
+
 #btn-mute, #btn-history {
     position: absolute;
     top: 8px;
@@ -161,6 +187,18 @@ button, select, input {
         width: min(96vw, 600px);
         aspect-ratio: 4 / 5;
         max-height: 78vh;
+    }
+}
+
+/* Small-phone portrait: leave room for the bottom action panel */
+@media (max-width: 499px) and (orientation: portrait) {
+    #table-area {
+        max-height: calc(100dvh - 240px);
+    }
+}
+@media (max-width: 359px) and (orientation: portrait) {
+    #table-area {
+        max-height: calc(100dvh - 230px);
     }
 }
 
@@ -665,6 +703,33 @@ button, select, input {
     .raise-input-wrap { flex: 1 1 auto; }
     .quick-bets { flex: 1 1 100%; justify-content: space-between; }
     .quick-bet { flex: 1 1 auto; min-height: 40px; }
+}
+
+/* Mobile landscape: keep action panel from overlapping the table */
+@media (max-height: 500px) and (orientation: landscape) {
+    #game-container {
+        justify-content: flex-start;
+        padding-top: 4px;
+    }
+    #message-log { height: 36px; }
+    #game-info { top: 6px; font-size: 11px; gap: 6px; }
+    #btn-mute, #btn-history { top: 4px; width: 32px; height: 32px; font-size: 15px; }
+    #btn-history { right: 48px; }
+    #table-area {
+        width: min(92vw, 1000px);
+        max-height: calc(100dvh - 170px);
+        margin-top: 36px;
+    }
+    #action-panel {
+        padding: 6px 10px calc(4px + env(safe-area-inset-bottom)) 10px;
+        gap: 4px;
+    }
+    .action-row { gap: 6px; }
+    .action-row-primary .action-btn { min-height: 36px; font-size: 12px; }
+    #btn-all-in { font-size: 10px; }
+    .quick-bet { min-height: 32px; font-size: 11px; padding: 0 8px; }
+    #raise-slider { height: 28px; }
+    .raise-input-wrap input { height: 32px; }
 }
 
 /* Thinking indicator */
