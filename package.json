@@ -1,0 +1,16 @@
+{
+  "name": "poker-game",
+  "version": "1.0.0",
+  "description": "A browser-based no-limit Texas Hold'em game",
+  "type": "module",
+  "scripts": {
+    "dev": "python3 serve.py",
+    "build": "echo 'No build step required for vanilla JS project'"
+  },
+  "keywords": ["poker", "texas-holdem", "game"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@vercel/analytics": "^1.4.1"
+  }
+}
