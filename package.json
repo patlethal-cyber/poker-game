@@ -1,0 +1,29 @@
+{
+  "name": "poker-game",
+  "version": "1.0.0",
+  "description": "A browser-based no-limit Texas Hold'em game. You vs. 3–9 AI opponents with five distinct playing styles.",
+  "type": "module",
+  "scripts": {
+    "serve": "python3 serve.py",
+    "test": "echo \"No tests configured\" && exit 0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/patlethal-cyber/poker-game.git"
+  },
+  "keywords": [
+    "poker",
+    "texas-holdem",
+    "game",
+    "ai"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/patlethal-cyber/poker-game/issues"
+  },
+  "homepage": "https://github.com/patlethal-cyber/poker-game#readme",
+  "dependencies": {
+    "@vercel/analytics": "^2.0.1"
+  }
+}
