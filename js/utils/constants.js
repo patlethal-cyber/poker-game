@@ -76,6 +76,21 @@ export const DEFAULT_CONFIG = {
     blindEscalationHands: 10
 };
 
+/* Pacing — tuned for feel. All in milliseconds unless otherwise noted. */
+export const TIMING = {
+    POST_BLIND_MS: 400,
+    HOLE_DEAL_MS: 600,
+    BETWEEN_ACTIONS_MS: 300,
+    COMMUNITY_DEAL_NORMAL_MS: 800,
+    COMMUNITY_DEAL_FAST_MS: 350,
+    SHOWDOWN_REVEAL_MS: 2500,
+    POST_HAND_MS: 1000,
+    BETWEEN_HANDS_MS: 2000,
+    SHOWDOWN_COUNTDOWN_S: 5,
+    CONFETTI_COUNT: 120,
+    CONFETTI_LIFETIME_MS: 5500
+};
+
 export const BLIND_SCHEDULE = [
     { small: 5, big: 10 },
     { small: 10, big: 20 },

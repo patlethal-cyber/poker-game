@@ -10,7 +10,7 @@ import {
     NAME_POOL_MALE, NAME_POOL_FEMALE, NAME_GENDER, avatarInitial,
     avatarBgGradient
 } from './utils/helpers.js';
-import { BLIND_SCHEDULE, DEFAULT_CONFIG, HAND_NAMES } from './utils/constants.js';
+import { BLIND_SCHEDULE, DEFAULT_CONFIG, HAND_NAMES, TIMING } from './utils/constants.js';
 
 function cardToCode(c) {
     const rank = c.rank === '10' ? 'T' : c.rank;
@@ -718,7 +718,7 @@ class PokerApp {
         // Pause on showdown — user must click continue OR wait for countdown
         const countdownEl = document.getElementById('showdown-countdown');
         const continueBtn = document.getElementById('showdown-continue');
-        let seconds = 5;
+        let seconds = TIMING.SHOWDOWN_COUNTDOWN_S;
 
         const advance = () => {
             if (this._showdownCountdownId) {
@@ -808,7 +808,7 @@ class PokerApp {
 
     _launchConfetti() {
         const colors = ['#e1b959', '#f2d07a', '#39c06b', '#5aa9ff', '#e5564a', '#ffffff', '#c89a3a'];
-        const total = 120;
+        const total = TIMING.CONFETTI_COUNT;
         for (let i = 0; i < total; i++) {
             const el = document.createElement('div');
             el.className = 'confetti-piece';
@@ -826,7 +826,7 @@ class PokerApp {
                 --rot:${Math.floor(Math.random() * 3) * 360 + 180}deg;
             `;
             document.body.appendChild(el);
-            setTimeout(() => el.remove(), 5500);
+            setTimeout(() => el.remove(), TIMING.CONFETTI_LIFETIME_MS);
         }
     }
 

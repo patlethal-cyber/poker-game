@@ -1,4 +1,4 @@
-import { PHASES, DEFAULT_CONFIG, ACTIONS, BLIND_SCHEDULE } from '../utils/constants.js';
+import { PHASES, DEFAULT_CONFIG, ACTIONS, BLIND_SCHEDULE, TIMING } from '../utils/constants.js';
 import { EventEmitter, delay } from '../utils/helpers.js';
 import { Deck } from './Deck.js';
 import { Player } from './Player.js';
@@ -124,7 +124,7 @@ export class Game extends EventEmitter {
             }
 
             await this.playHand();
-            await this._delay(2000);
+            await this._delay(TIMING.BETWEEN_HANDS_MS);
         }
 
         this.isRunning = false;
@@ -195,7 +195,7 @@ export class Game extends EventEmitter {
         const allInPreFlop = this._isAllInRunout();
         if (allInPreFlop) this.emit('allInRunout');
         this.emit('dealCommunityCards', { cards: flopCards, street: 'flop', all: this.communityCards, fastForward: allInPreFlop });
-        await this._delay(allInPreFlop ? 350 : 800);
+        await this._delay(allInPreFlop ? TIMING.COMMUNITY_DEAL_FAST_MS : TIMING.COMMUNITY_DEAL_NORMAL_MS);
 
         this.phase = PHASES.FLOP;
         if (!allInPreFlop) {
@@ -208,7 +208,7 @@ export class Game extends EventEmitter {
         this.communityCards.push(...turnCard);
         const allInPreTurn = this._isAllInRunout();
         this.emit('dealCommunityCards', { cards: turnCard, street: 'turn', all: this.communityCards, fastForward: allInPreTurn });
-        await this._delay(allInPreTurn ? 350 : 800);
+        await this._delay(allInPreTurn ? TIMING.COMMUNITY_DEAL_FAST_MS : TIMING.COMMUNITY_DEAL_NORMAL_MS);
 
         this.phase = PHASES.TURN;
         if (!allInPreTurn) {
@@ -221,7 +221,7 @@ export class Game extends EventEmitter {
         this.communityCards.push(...riverCard);
         const allInPreRiver = this._isAllInRunout();
         this.emit('dealCommunityCards', { cards: riverCard, street: 'river', all: this.communityCards, fastForward: allInPreRiver });
-        await this._delay(allInPreRiver ? 350 : 800);
+        await this._delay(allInPreRiver ? TIMING.COMMUNITY_DEAL_FAST_MS : TIMING.COMMUNITY_DEAL_NORMAL_MS);
 
         this.phase = PHASES.RIVER;
         if (!allInPreRiver) {
@@ -242,7 +242,7 @@ export class Game extends EventEmitter {
         const bbAmount = bb.bet(Math.min(this.blindLevel.big, bb.chips));
         this.emit('postBlind', { player: bb, amount: bbAmount, type: 'big' });
 
-        await this._delay(400);
+        await this._delay(TIMING.POST_BLIND_MS);
     }
 
     async _dealHoleCards() {
@@ -255,7 +255,7 @@ export class Game extends EventEmitter {
         }
 
         this.emit('dealHoleCards', { players: this.players });
-        await this._delay(600);
+        await this._delay(TIMING.HOLE_DEAL_MS);
     }
 
     async _runBettingRound(startIndex, currentBet, minRaise) {
@@ -313,7 +313,7 @@ export class Game extends EventEmitter {
                 pot: this.potManager.totalPot + this._currentRoundBets()
             });
 
-            await this._delay(300);
+            await this._delay(TIMING.BETWEEN_ACTIONS_MS);
         }
 
         this.potManager.collectBets(this.players);
@@ -456,7 +456,7 @@ export class Game extends EventEmitter {
             communityCards: this.communityCards
         });
 
-        await this._delay(2500);
+        await this._delay(TIMING.SHOWDOWN_REVEAL_MS);
 
         const awards = this.potManager.distributePots(evaluations);
 
@@ -477,7 +477,7 @@ export class Game extends EventEmitter {
         this._advanceDealer();
         this.phase = PHASES.WAITING;
 
-        await this._delay(1000);
+        await this._delay(TIMING.POST_HAND_MS);
     }
 
     _advanceDealer() {
