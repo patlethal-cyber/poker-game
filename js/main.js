@@ -87,6 +87,7 @@ class PokerApp {
         if (!overlay) return;
         const titleEl = overlay.querySelector('.rotate-title');
         const descEl = overlay.querySelector('.rotate-desc');
+        const iconEl = overlay.querySelector('.rotate-icon');
         const isTouchDevice = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
         const check = () => {
@@ -97,9 +98,11 @@ class PokerApp {
 
             if (blocked && titleEl && descEl) {
                 if (isTouchDevice() && !wide) {
+                    if (iconEl) iconEl.textContent = '📱';
                     titleEl.textContent = 'Please rotate your phone to landscape';
                     descEl.textContent = 'This game needs landscape mode to fit the full table. If your screen stays locked, check your system rotation settings.';
                 } else {
+                    if (iconEl) iconEl.textContent = '🖥️';
                     titleEl.textContent = 'Your browser window is too narrow';
                     descEl.textContent = 'This game needs a wider screen to fit the full table. Please expand your browser window, or press F11 to go fullscreen.';
                 }
@@ -219,10 +222,26 @@ class PokerApp {
             </div>`;
         }).join('');
 
-        open.addEventListener('click', () => screen.classList.add('visible'));
-        close?.addEventListener('click', () => screen.classList.remove('visible'));
+        let lastFocused = null;
+        const openModal = () => {
+            lastFocused = document.activeElement;
+            screen.classList.add('visible');
+            close?.focus();
+        };
+        const closeModal = () => {
+            screen.classList.remove('visible');
+            lastFocused?.focus?.();
+        };
+        open.addEventListener('click', openModal);
+        close?.addEventListener('click', closeModal);
         screen.addEventListener('click', (e) => {
-            if (e.target === screen) screen.classList.remove('visible');
+            if (e.target === screen) closeModal();
+        });
+        screen.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && screen.classList.contains('visible')) {
+                e.preventDefault();
+                closeModal();
+            }
         });
     }
 
