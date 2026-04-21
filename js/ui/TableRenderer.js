@@ -15,7 +15,6 @@ export class TableRenderer {
         this.potLabelEl = document.getElementById('pot-label');
 
         this._actionTokens = {};
-        this._chatterTokens = {};
         this._lastRenderedBet = {};
         this._lastRenderedPot = null;
     }
@@ -137,7 +136,6 @@ export class TableRenderer {
         const avatarBg = avatarBgGradient(player.name, gender);
 
         seat.innerHTML = `
-            <div class="speech-bubble" id="chatter-${player.seatIndex}"></div>
             <div class="player-cards" id="cards-${player.seatIndex}"></div>
             <div class="player-info">
                 <div class="seat-left">
@@ -234,27 +232,6 @@ export class TableRenderer {
     showThinking(player, show) {
         const el = document.getElementById(`thinking-${player.seatIndex}`);
         if (el) el.classList.toggle('visible', show);
-    }
-
-    /* Personality-driven speech bubble. Only used for AI. */
-    showChatter(player, text, duration = 2200) {
-        const seat = player.seatIndex;
-        const el = document.getElementById(`chatter-${seat}`);
-        if (!el) return;
-        el.textContent = text;
-        el.classList.add('visible');
-        const token = (this._chatterTokens[seat] || 0) + 1;
-        this._chatterTokens[seat] = token;
-        setTimeout(() => {
-            if (this._chatterTokens[seat] === token) el.classList.remove('visible');
-        }, duration);
-    }
-
-    hideChatter(player) {
-        const seat = player.seatIndex;
-        const el = document.getElementById(`chatter-${seat}`);
-        if (el) el.classList.remove('visible');
-        this._chatterTokens[seat] = (this._chatterTokens[seat] || 0) + 1;
     }
 
     dealHoleCards(players, showHuman = true) {

@@ -685,39 +685,6 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
 .player-action-label.check { color: var(--ink-faint); }
 .player-action-label.all-in { color: #ff7064; font-weight: 800; letter-spacing: 1.5px; }
 
-/* Speech bubble (AI thinking chatter) */
-.speech-bubble {
-    position: absolute;
-    bottom: calc(100% + 10px);
-    left: 50%;
-    transform: translateX(-50%) translateY(4px);
-    background: rgba(20, 20, 20, 0.94);
-    color: var(--ink);
-    font-size: calc(11px * var(--scale));
-    font-weight: 500;
-    padding: 6px 10px;
-    border-radius: 12px;
-    border: 1px solid rgba(255,255,255,0.1);
-    white-space: nowrap;
-    opacity: 0;
-    transition: opacity 0.25s, transform 0.25s;
-    pointer-events: none;
-    z-index: 30;
-    max-width: 180px;
-    box-shadow: var(--shadow-sm);
-    font-style: italic;
-}
-.speech-bubble::after {
-    content: '';
-    position: absolute;
-    top: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    border: 5px solid transparent;
-    border-top-color: rgba(20, 20, 20, 0.94);
-}
-.speech-bubble.visible { opacity: 1; transform: translateX(-50%) translateY(0); }
-
 /* Bet chip cluster on the table */
 .player-bet {
     position: absolute;
