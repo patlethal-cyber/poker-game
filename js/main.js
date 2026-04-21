@@ -6,7 +6,7 @@ import { MessageLog } from './ui/MessageLog.js';
 import { AudioManager } from './ui/AudioManager.js';
 import { HistoryStore } from './storage/HistoryStore.js';
 import {
-    formatChips,
+    formatChips, shuffle,
     NAME_POOL_MALE, NAME_POOL_FEMALE, NAME_GENDER, avatarInitial,
     avatarBgGradient
 } from './utils/helpers.js';
@@ -371,19 +371,19 @@ class PokerApp {
     _buildPlayerList(count) {
         const STRATEGY_POOL = ['Shark', 'Maniac', 'Rock', 'Fish', 'Wildcard'];
         // Gender-balanced: shuffle both pools, interleave
-        const males = [...NAME_POOL_MALE].sort(() => Math.random() - 0.5);
-        const females = [...NAME_POOL_FEMALE].sort(() => Math.random() - 0.5);
+        const males = shuffle(NAME_POOL_MALE);
+        const females = shuffle(NAME_POOL_FEMALE);
         const aiCount = count - 1;
-        const allNames = [];
+        const picked = [];
         const targetFemale = Math.round(aiCount * 0.5);
-        for (let i = 0; i < targetFemale && i < females.length; i++) allNames.push(females[i]);
-        for (let i = 0; i < aiCount - targetFemale && i < males.length; i++) allNames.push(males[i]);
+        for (let i = 0; i < targetFemale && i < females.length; i++) picked.push(females[i]);
+        for (let i = 0; i < aiCount - targetFemale && i < males.length; i++) picked.push(males[i]);
         // Shuffle so seating is mixed
-        allNames.sort(() => Math.random() - 0.5);
+        const allNames = shuffle(picked);
 
-        const strategies = [];
-        for (let i = 0; i < aiCount; i++) strategies.push(STRATEGY_POOL[i % STRATEGY_POOL.length]);
-        strategies.sort(() => Math.random() - 0.5);
+        const rawStrategies = [];
+        for (let i = 0; i < aiCount; i++) rawStrategies.push(STRATEGY_POOL[i % STRATEGY_POOL.length]);
+        const strategies = shuffle(rawStrategies);
 
         const players = [{ name: 'You', isHuman: true, strategy: null }];
         for (let i = 0; i < aiCount; i++) {
