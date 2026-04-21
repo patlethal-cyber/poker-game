@@ -1,5 +1,6 @@
 import { Game } from './game/Game.js';
 import { AIController } from './ai/AIController.js';
+import { assignPersonalities } from './ai/RoleAssigner.js';
 import { TableRenderer } from './ui/TableRenderer.js';
 import { ActionPanel } from './ui/ActionPanel.js';
 import { MessageLog } from './ui/MessageLog.js';
@@ -388,7 +389,6 @@ class PokerApp {
     // ---------------- Game setup ----------------
 
     _buildPlayerList(count) {
-        const STRATEGY_POOL = ['Shark', 'Maniac', 'Rock', 'Fish', 'Wildcard'];
         // Gender-balanced: shuffle both pools, interleave
         const males = shuffle(NAME_POOL_MALE);
         const females = shuffle(NAME_POOL_FEMALE);
@@ -400,9 +400,8 @@ class PokerApp {
         // Shuffle so seating is mixed
         const allNames = shuffle(picked);
 
-        const rawStrategies = [];
-        for (let i = 0; i < aiCount; i++) rawStrategies.push(STRATEGY_POOL[i % STRATEGY_POOL.length]);
-        const strategies = shuffle(rawStrategies);
+        // Weighted personality distribution with a hard shark cap
+        const strategies = assignPersonalities(count);
 
         const players = [{ name: 'You', isHuman: true, strategy: null }];
         for (let i = 0; i < aiCount; i++) {
