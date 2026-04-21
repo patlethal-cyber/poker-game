@@ -728,6 +728,10 @@ class PokerApp {
         continueBtn?.addEventListener('click', advance, { once: true });
 
         this._showdownCountdownId = setInterval(() => {
+            if (this._paused) {
+                if (countdownEl) countdownEl.textContent = 'Paused — click Next Hand when ready';
+                return;
+            }
             seconds--;
             if (countdownEl) countdownEl.textContent = `Auto-continue in ${seconds}s`;
             if (seconds <= 0) advance();
