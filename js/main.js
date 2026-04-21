@@ -397,6 +397,9 @@ class PokerApp {
             this.game.stopGame();
             this.game._listeners = {};
         }
+        if (this.tableRenderer) {
+            this.tableRenderer.dispose();
+        }
 
         document.getElementById('start-screen').style.display = 'none';
         const statsEl = document.getElementById('game-over-stats');

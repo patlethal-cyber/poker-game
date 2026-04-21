@@ -58,6 +58,13 @@ export class TableRenderer {
         window.addEventListener('resize', this._resizeHandler);
     }
 
+    dispose() {
+        if (this._resizeHandler) {
+            window.removeEventListener('resize', this._resizeHandler);
+            this._resizeHandler = null;
+        }
+    }
+
     _repositionAll() {
         for (const idx of Object.keys(this.seatElements)) {
             this._positionSeat(parseInt(idx));
