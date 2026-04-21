@@ -393,7 +393,7 @@ export class Game extends EventEmitter {
 
         const [action] = await Promise.all([
             this.aiController.decide(player, gameState, validActions),
-            delay(thinkTime)
+            this._delay(thinkTime)
         ]);
 
         return action;
