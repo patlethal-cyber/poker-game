@@ -616,6 +616,10 @@ class PokerApp {
         g.on('gameOver', (data) => {
             const overlay = document.getElementById('showdown-overlay');
             overlay?.classList.remove('visible');
+            if (this._showdownCountdownId) {
+                clearInterval(this._showdownCountdownId);
+                this._showdownCountdownId = null;
+            }
             tr.setActivePlayer(null);
 
             const humanWon = data.winner?.isHuman;
