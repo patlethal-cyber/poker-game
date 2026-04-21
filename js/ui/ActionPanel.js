@@ -83,33 +83,6 @@ export class ActionPanel {
         quickBets.forEach(btn => {
             btn.addEventListener('click', () => this._applyQuickBet(btn.dataset.quick));
         });
-
-        document.addEventListener('keydown', (e) => this._onKeyDown(e));
-    }
-
-    _onKeyDown(e) {
-        if (!this.panel.classList.contains('visible')) return;
-        const tag = e.target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
-        if (e.ctrlKey || e.metaKey || e.altKey) return;
-
-        const key = e.key.toLowerCase();
-        if (key === 'f') {
-            e.preventDefault();
-            if (!this.btnFold.disabled && this.btnFold.offsetParent !== null) this.btnFold.click();
-        } else if (key === 'c') {
-            e.preventDefault();
-            if (!this.btnCheckCall.disabled && this.btnCheckCall.offsetParent !== null) this.btnCheckCall.click();
-        } else if (key === 'r') {
-            e.preventDefault();
-            if (this.btnRaise.offsetParent !== null) {
-                this.raiseInput?.focus();
-                this.raiseInput?.select();
-            }
-        } else if (key === 'a') {
-            e.preventDefault();
-            if (!this.btnAllIn.disabled && this.btnAllIn.offsetParent !== null) this.btnAllIn.click();
-        }
     }
 
     _applyQuickBet(kind) {
@@ -142,6 +115,24 @@ export class ActionPanel {
     _submitAction(action) {
         this.hide();
         this.game.handleHumanAction(action);
+    }
+
+    /* Sync panel size into CSS var + set data attribute on game-container so the
+       table shifts up and nothing overlaps the action panel. */
+    _syncTableShift(visible) {
+        const container = document.getElementById('game-container');
+        if (!container) return;
+        if (visible) {
+            // Wait a frame so the panel has its real height after layout
+            requestAnimationFrame(() => {
+                const h = this.panel.offsetHeight || 0;
+                document.documentElement.style.setProperty('--action-panel-height', `${h}px`);
+                container.setAttribute('data-panel-open', '1');
+            });
+        } else {
+            container.removeAttribute('data-panel-open');
+            document.documentElement.style.setProperty('--action-panel-height', '0px');
+        }
     }
 
     show(validActions) {
@@ -184,9 +175,11 @@ export class ActionPanel {
         }
 
         this.panel.classList.add('visible');
+        this._syncTableShift(true);
     }
 
     hide() {
         this.panel.classList.remove('visible');
+        this._syncTableShift(false);
     }
 }

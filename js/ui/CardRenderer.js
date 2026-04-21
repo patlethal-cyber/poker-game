@@ -7,29 +7,49 @@ export class CardRenderer {
         const el = document.createElement('div');
         const suitColor = SUIT_COLORS[card.suit];
         const isFaceCard = ['J', 'Q', 'K'].includes(card.rank);
+        const isAce = card.rank === 'A';
 
-        el.className = `card ${suitColor}${faceDown ? ' face-down' : ''}${isFaceCard ? ' face-card' : ''}${animate ? ' dealing' : ''}`;
-        if (size === 'small') el.classList.add('small');
-        if (size === 'micro') el.classList.add('micro');
+        const classes = ['card', suitColor];
+        if (faceDown) classes.push('face-down');
+        if (isFaceCard) classes.push('face-card');
+        if (isAce) classes.push('rank-A');
+        if (animate) classes.push('dealing');
+        if (size === 'small') classes.push('small');
+        if (size === 'micro') classes.push('micro');
+        el.className = classes.join(' ');
 
         const suitSymbol = SUIT_SYMBOLS[card.suit];
 
-        el.innerHTML = `
-            <div class="card-inner">
-                <div class="card-front">
-                    <div class="card-corner card-corner-top">
-                        <span class="rank">${card.rank}</span>
-                        <span class="suit">${suitSymbol}</span>
+        if (size === 'micro') {
+            el.innerHTML = `
+                <div class="card-inner">
+                    <div class="card-front">
+                        <div class="card-center">
+                            <span class="micro-rank">${card.rank}</span>
+                            <span class="micro-suit">${suitSymbol}</span>
+                        </div>
                     </div>
-                    ${CardRenderer._getCenterContent(card, suitSymbol, isFaceCard)}
-                    <div class="card-corner card-corner-bottom">
-                        <span class="rank">${card.rank}</span>
-                        <span class="suit">${suitSymbol}</span>
-                    </div>
+                    <div class="card-back"></div>
                 </div>
-                <div class="card-back"></div>
-            </div>
-        `;
+            `;
+        } else {
+            el.innerHTML = `
+                <div class="card-inner">
+                    <div class="card-front">
+                        <div class="card-corner card-corner-top">
+                            <span class="rank">${card.rank}</span>
+                            <span class="suit">${suitSymbol}</span>
+                        </div>
+                        ${CardRenderer._getCenterContent(card, suitSymbol, isFaceCard)}
+                        <div class="card-corner card-corner-bottom">
+                            <span class="rank">${card.rank}</span>
+                            <span class="suit">${suitSymbol}</span>
+                        </div>
+                    </div>
+                    <div class="card-back"></div>
+                </div>
+            `;
+        }
 
         el._cardData = card;
         return el;
@@ -39,15 +59,15 @@ export class CardRenderer {
         if (isFaceCard) {
             return `<div class="card-center">${card.rank}<span class="face-suit">${suitSymbol}</span></div>`;
         }
-        if (card.rank === 'A') {
-            return `<div class="card-center" style="font-size:36px">${suitSymbol}</div>`;
-        }
         return `<div class="card-center">${suitSymbol}</div>`;
     }
 
     static createCardBack(size = 'normal') {
         const el = document.createElement('div');
-        el.className = `card face-down${size === 'small' ? ' small' : ''}`;
+        const classes = ['card', 'face-down'];
+        if (size === 'small') classes.push('small');
+        if (size === 'micro') classes.push('micro');
+        el.className = classes.join(' ');
         el.innerHTML = `
             <div class="card-inner">
                 <div class="card-front"></div>

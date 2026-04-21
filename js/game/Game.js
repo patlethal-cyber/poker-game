@@ -26,6 +26,39 @@ export class Game extends EventEmitter {
         this.aiController = null;
         this.isRunning = false;
         this._humanActionResolver = null;
+        this._paused = false;
+        this._pauseWaiters = [];
+        this._showdownContinueResolver = null;
+    }
+
+    setPaused(paused) {
+        this._paused = !!paused;
+        if (!this._paused) {
+            const waiters = this._pauseWaiters;
+            this._pauseWaiters = [];
+            waiters.forEach(w => w());
+        }
+    }
+
+    /* Await if paused; resolves immediately when unpaused. */
+    _awaitUnpaused() {
+        if (!this._paused) return Promise.resolve();
+        return new Promise(resolve => this._pauseWaiters.push(resolve));
+    }
+
+    /* Delay that respects pause: any time we're paused, the timer is held. */
+    async _delay(ms) {
+        await this._awaitUnpaused();
+        await delay(ms);
+        await this._awaitUnpaused();
+    }
+
+    signalShowdownContinue() {
+        if (this._showdownContinueResolver) {
+            const r = this._showdownContinueResolver;
+            this._showdownContinueResolver = null;
+            r();
+        }
     }
 
     setupPlayers(playerConfigs) {
@@ -91,7 +124,7 @@ export class Game extends EventEmitter {
             }
 
             await this.playHand();
-            await delay(2000);
+            await this._delay(2000);
         }
 
         this.isRunning = false;
@@ -159,33 +192,41 @@ export class Game extends EventEmitter {
         this.phase = PHASES.DEAL_FLOP;
         const flopCards = this.deck.deal(3);
         this.communityCards.push(...flopCards);
-        this.emit('dealCommunityCards', { cards: flopCards, street: 'flop', all: this.communityCards });
-        await delay(800);
+        const allInPreFlop = this._isAllInRunout();
+        if (allInPreFlop) this.emit('allInRunout');
+        this.emit('dealCommunityCards', { cards: flopCards, street: 'flop', all: this.communityCards, fastForward: allInPreFlop });
+        await this._delay(allInPreFlop ? 350 : 800);
 
         this.phase = PHASES.FLOP;
-        await this._runBettingRound(this._nextInHandActiveIndex(this.dealerIndex), 0, this.blindLevel.big);
-
-        if (this._checkHandOver()) return;
+        if (!allInPreFlop) {
+            await this._runBettingRound(this._nextInHandActiveIndex(this.dealerIndex), 0, this.blindLevel.big);
+            if (this._checkHandOver()) return;
+        }
 
         this.phase = PHASES.DEAL_TURN;
         const turnCard = this.deck.deal(1);
         this.communityCards.push(...turnCard);
-        this.emit('dealCommunityCards', { cards: turnCard, street: 'turn', all: this.communityCards });
-        await delay(800);
+        const allInPreTurn = this._isAllInRunout();
+        this.emit('dealCommunityCards', { cards: turnCard, street: 'turn', all: this.communityCards, fastForward: allInPreTurn });
+        await this._delay(allInPreTurn ? 350 : 800);
 
         this.phase = PHASES.TURN;
-        await this._runBettingRound(this._nextInHandActiveIndex(this.dealerIndex), 0, this.blindLevel.big);
-
-        if (this._checkHandOver()) return;
+        if (!allInPreTurn) {
+            await this._runBettingRound(this._nextInHandActiveIndex(this.dealerIndex), 0, this.blindLevel.big);
+            if (this._checkHandOver()) return;
+        }
 
         this.phase = PHASES.DEAL_RIVER;
         const riverCard = this.deck.deal(1);
         this.communityCards.push(...riverCard);
-        this.emit('dealCommunityCards', { cards: riverCard, street: 'river', all: this.communityCards });
-        await delay(800);
+        const allInPreRiver = this._isAllInRunout();
+        this.emit('dealCommunityCards', { cards: riverCard, street: 'river', all: this.communityCards, fastForward: allInPreRiver });
+        await this._delay(allInPreRiver ? 350 : 800);
 
         this.phase = PHASES.RIVER;
-        await this._runBettingRound(this._nextInHandActiveIndex(this.dealerIndex), 0, this.blindLevel.big);
+        if (!allInPreRiver) {
+            await this._runBettingRound(this._nextInHandActiveIndex(this.dealerIndex), 0, this.blindLevel.big);
+        }
 
         if (this._checkHandOver()) return;
 
@@ -201,7 +242,7 @@ export class Game extends EventEmitter {
         const bbAmount = bb.bet(Math.min(this.blindLevel.big, bb.chips));
         this.emit('postBlind', { player: bb, amount: bbAmount, type: 'big' });
 
-        await delay(400);
+        await this._delay(400);
     }
 
     async _dealHoleCards() {
@@ -214,7 +255,7 @@ export class Game extends EventEmitter {
         }
 
         this.emit('dealHoleCards', { players: this.players });
-        await delay(600);
+        await this._delay(600);
     }
 
     async _runBettingRound(startIndex, currentBet, minRaise) {
@@ -272,7 +313,7 @@ export class Game extends EventEmitter {
                 pot: this.potManager.totalPot + this._currentRoundBets()
             });
 
-            await delay(300);
+            await this._delay(300);
         }
 
         this.potManager.collectBets(this.players);
@@ -358,6 +399,13 @@ export class Game extends EventEmitter {
         return action;
     }
 
+    /* True when all remaining players are all-in (no one can bet). Used to fast-forward streets. */
+    _isAllInRunout() {
+        const inHand = this.playersInHand;
+        if (inHand.length < 2) return false;
+        return inHand.every(p => p.isAllIn || p.chips === 0);
+    }
+
     _checkHandOver() {
         const inHand = this.playersInHand;
         if (inHand.length <= 1) {
@@ -408,7 +456,7 @@ export class Game extends EventEmitter {
             communityCards: this.communityCards
         });
 
-        await delay(2500);
+        await this._delay(2500);
 
         const awards = this.potManager.distributePots(evaluations);
 
@@ -418,7 +466,10 @@ export class Game extends EventEmitter {
 
         this.emit('potsAwarded', { awards, evaluations });
 
-        await delay(5000);
+        // Wait for user to click continue (or countdown auto-advance in main.js)
+        await new Promise(resolve => {
+            this._showdownContinueResolver = resolve;
+        });
 
         this.emit('hideShowdown');
 
@@ -426,7 +477,7 @@ export class Game extends EventEmitter {
         this._advanceDealer();
         this.phase = PHASES.WAITING;
 
-        await delay(1000);
+        await this._delay(1000);
     }
 
     _advanceDealer() {

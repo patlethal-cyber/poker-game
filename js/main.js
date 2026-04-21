@@ -5,12 +5,39 @@ import { ActionPanel } from './ui/ActionPanel.js';
 import { MessageLog } from './ui/MessageLog.js';
 import { AudioManager } from './ui/AudioManager.js';
 import { HistoryStore } from './storage/HistoryStore.js';
-import { formatChips } from './utils/helpers.js';
+import {
+    formatChips,
+    NAME_POOL_MALE, NAME_POOL_FEMALE, NAME_GENDER, avatarInitial,
+    avatarBgGradient
+} from './utils/helpers.js';
+import { BLIND_SCHEDULE, DEFAULT_CONFIG, HAND_NAMES } from './utils/constants.js';
 
 function cardToCode(c) {
     const rank = c.rank === '10' ? 'T' : c.rank;
     const suit = { hearts: 'h', diamonds: 'd', clubs: 'c', spades: 's' }[c.suit];
     return `${rank}${suit}`;
+}
+
+function suitSymbol(s) {
+    return { hearts: '\u2665', diamonds: '\u2666', clubs: '\u2663', spades: '\u2660' }[s];
+}
+
+function miniCardHTML(c) {
+    const red = c.suit === 'hearts' || c.suit === 'diamonds';
+    return `<span class="mini-card${red ? ' red' : ''}">${c.rank}<span class="mini-suit">${suitSymbol(c.suit)}</span></span>`;
+}
+
+function microCardHTML(c) {
+    const red = c.suit === 'hearts' || c.suit === 'diamonds';
+    const colorClass = red ? 'red' : 'black';
+    return `<div class="card micro ${colorClass}">
+        <div class="card-inner"><div class="card-front">
+            <div class="card-center">
+                <span class="micro-rank">${c.rank}</span>
+                <span class="micro-suit">${suitSymbol(c.suit)}</span>
+            </div>
+        </div></div>
+    </div>`;
 }
 
 class PokerApp {
@@ -22,14 +49,20 @@ class PokerApp {
         this.audio = null;
         this.history = null;
         this._currentRec = null;
+        this._paused = false;
+        this._showdownCountdownId = null;
     }
 
     init() {
         this.messageLog = new MessageLog();
         this.audio = new AudioManager();
         this.history = new HistoryStore();
-        this._initMuteButton();
+        this._initTopBar();
         this._initHistoryScreen();
+        this._initRankingsScreen();
+        this._initPauseControls();
+        this._initVisibilityAutoPause();
+        this._initOrientationCheck();
 
         const startBtn = document.getElementById('start-btn');
         startBtn.addEventListener('click', () => {
@@ -47,27 +80,179 @@ class PokerApp {
         }
     }
 
-    _finalizeHandRecord() {
-        const rec = this._currentRec;
-        if (!rec || !this.game) return;
+    // ---------------- Orientation / viewport gate ----------------
 
-        for (const seat of rec.seats) {
-            const p = this.game.players[seat.seatIndex];
-            if (p) seat.endChips = p.chips;
-        }
+    _initOrientationCheck() {
+        const overlay = document.getElementById('rotate-overlay');
+        if (!overlay) return;
+        const titleEl = overlay.querySelector('.rotate-title');
+        const descEl = overlay.querySelector('.rotate-desc');
+        const isTouchDevice = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-        const humanSeat = rec.seats.find(s => s.isHuman);
-        if (humanSeat) {
-            rec.humanNet = humanSeat.endChips - humanSeat.startChips;
-            if (rec.humanActions.some(a => a.type === 'fold')) rec.humanResult = 'fold';
-            else if (rec.humanNet > 0) rec.humanResult = 'win';
-            else if (rec.humanNet === 0) rec.humanResult = 'chop';
-            else rec.humanResult = 'loss';
-        }
+        const check = () => {
+            const wide = window.innerWidth >= window.innerHeight;
+            const minWidth = window.innerWidth >= 900;
+            const blocked = !wide || !minWidth;
+            overlay.classList.toggle('visible', blocked);
 
-        this.history.appendHand(rec);
-        this._currentRec = null;
+            if (blocked && titleEl && descEl) {
+                if (isTouchDevice() && !wide) {
+                    titleEl.textContent = 'Please rotate your phone to landscape';
+                    descEl.textContent = 'This game needs landscape mode to fit the full table. If your screen stays locked, check your system rotation settings.';
+                } else {
+                    titleEl.textContent = 'Your browser window is too narrow';
+                    descEl.textContent = 'This game needs a wider screen to fit the full table. Please expand your browser window, or press F11 to go fullscreen.';
+                }
+            }
+        };
+
+        window.addEventListener('resize', check);
+        window.addEventListener('orientationchange', check);
+        check();
     }
+
+    // ---------------- Top bar: mute, pause, rankings, stats hint ----------------
+
+    _initTopBar() {
+        // Mute
+        const muteBtn = document.getElementById('btn-mute');
+        const renderMute = () => {
+            muteBtn.classList.toggle('muted', this.audio.muted);
+            muteBtn.setAttribute('aria-label', this.audio.muted ? 'Unmute sound' : 'Mute sound');
+        };
+        renderMute();
+        muteBtn.addEventListener('click', () => {
+            this.audio.toggleMute();
+            this.audio.resumeIfSuspended();
+            if (!this.audio.muted) this.audio.play('chip-light');
+            renderMute();
+        });
+    }
+
+    _initPauseControls() {
+        const pauseBtn = document.getElementById('btn-pause');
+        const overlay = document.getElementById('pause-overlay');
+        const resumeBtn = document.getElementById('btn-resume');
+
+        pauseBtn?.addEventListener('click', () => this.togglePause(true));
+        resumeBtn?.addEventListener('click', () => this.togglePause(false));
+    }
+
+    _initVisibilityAutoPause() {
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && this.game?.isRunning && !this._paused) {
+                this.togglePause(true, /*auto=*/true);
+            }
+        });
+    }
+
+    togglePause(wantPause, auto = false) {
+        if (!this.game) return;
+        const overlay = document.getElementById('pause-overlay');
+        const pauseBtn = document.getElementById('btn-pause');
+        this._paused = !!wantPause;
+        if (this._paused) {
+            overlay?.classList.add('visible');
+            pauseBtn?.classList.add('paused');
+            this.game.setPaused(true);
+            if (auto) {
+                const p = overlay?.querySelector('p');
+                if (p) p.textContent = 'Auto-paused because you switched tabs. Click Resume when ready.';
+            }
+        } else {
+            overlay?.classList.remove('visible');
+            pauseBtn?.classList.remove('paused');
+            this.game.setPaused(false);
+        }
+    }
+
+    _initRankingsScreen() {
+        const open = document.getElementById('btn-rankings');
+        const close = document.getElementById('btn-rankings-close');
+        const screen = document.getElementById('rankings-screen');
+        const body = document.getElementById('rankings-body');
+        if (!open || !screen || !body) return;
+
+        const SAMPLES = {
+            'Royal Flush':      ['10h', 'Jh', 'Qh', 'Kh', 'Ah'],
+            'Straight Flush':   ['5s', '6s', '7s', '8s', '9s'],
+            'Four of a Kind':   ['Kh', 'Kd', 'Kc', 'Ks', '3h'],
+            'Full House':       ['Qh', 'Qd', 'Qc', '7h', '7d'],
+            'Flush':            ['2d', '6d', '9d', 'Jd', 'Kd'],
+            'Straight':         ['4h', '5c', '6d', '7s', '8h'],
+            'Three of a Kind':  ['9h', '9d', '9c', 'Jd', '4s'],
+            'Two Pair':         ['Ah', 'Ad', '8c', '8s', '2h'],
+            'One Pair':         ['Jh', 'Jd', '7c', '4s', '2d'],
+            'High Card':        ['Ad', 'Kc', '9h', '6s', '3d']
+        };
+        const EX = {
+            'Royal Flush':      '10, J, Q, K, A all same suit — the ultimate hand.',
+            'Straight Flush':   'Five in a row, all same suit.',
+            'Four of a Kind':   'Four cards of the same rank.',
+            'Full House':       'Three of a kind plus a pair.',
+            'Flush':            'Five cards of the same suit, any order.',
+            'Straight':         'Five in a row, mixed suits.',
+            'Three of a Kind':  'Three cards of the same rank.',
+            'Two Pair':         'Two different pairs.',
+            'One Pair':         'Two cards of the same rank.',
+            'High Card':        'Nothing matches — highest card plays.'
+        };
+
+        const parseCode = (code) => {
+            const rank = code.slice(0, code.length - 1);
+            const suit = { h: 'hearts', d: 'diamonds', c: 'clubs', s: 'spades' }[code.slice(-1)];
+            return { rank: rank === 'T' ? '10' : rank, suit };
+        };
+
+        const rankings = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+        body.innerHTML = rankings.map(rank => {
+            const name = HAND_NAMES[rank];
+            const sample = (SAMPLES[name] || []).map(parseCode);
+            const cardsHTML = sample.map(microCardHTML).join('');
+            return `<div class="ranking-row">
+                <div class="rank-num">${rank}</div>
+                <div class="rank-info">
+                    <span class="rank-name">${name}</span>
+                    <span class="rank-ex">${EX[name] || ''}</span>
+                </div>
+                <div class="rank-sample">${cardsHTML}</div>
+            </div>`;
+        }).join('');
+
+        open.addEventListener('click', () => screen.classList.add('visible'));
+        close?.addEventListener('click', () => screen.classList.remove('visible'));
+        screen.addEventListener('click', (e) => {
+            if (e.target === screen) screen.classList.remove('visible');
+        });
+    }
+
+    _maybeShowStatsHint() {
+        const settings = this._loadSettings();
+        if (settings.statsHintSeen) return;
+        const hands = this.history.getStats().handsPlayed;
+        if (hands < 5) return;
+
+        const hint = document.getElementById('stats-hint');
+        const btn = document.getElementById('btn-history');
+        const closeBtn = document.getElementById('stats-hint-close');
+        if (!hint || !btn) return;
+
+        btn.classList.add('has-news');
+        hint.classList.add('visible');
+
+        const dismiss = () => {
+            hint.classList.remove('visible');
+            btn.classList.remove('has-news');
+            this._saveSettings({ statsHintSeen: true });
+        };
+        closeBtn?.addEventListener('click', dismiss, { once: true });
+        setTimeout(() => {
+            // Auto-dismiss after 8s
+            if (hint.classList.contains('visible')) dismiss();
+        }, 8000);
+    }
+
+    // ---------------- History screen ----------------
 
     _initHistoryScreen() {
         const btnOpen = document.getElementById('btn-history');
@@ -80,6 +265,10 @@ class PokerApp {
         if (!btnOpen || !screen) return;
 
         const open = () => {
+            // Clear the news indicator when opened
+            btnOpen.classList.remove('has-news');
+            document.getElementById('stats-hint')?.classList.remove('visible');
+            this._saveSettings({ statsHintSeen: true });
             this._renderHistory();
             screen.classList.add('visible');
         };
@@ -107,6 +296,9 @@ class PokerApp {
             }
             importInput.value = '';
         });
+        screen.addEventListener('click', (e) => {
+            if (e.target === screen) close();
+        });
     }
 
     _renderHistory() {
@@ -125,8 +317,8 @@ class PokerApp {
             <div class="stats-row"><span class="label">Hands Played</span><span class="value">${s.handsPlayed}</span></div>
             <div class="stats-row"><span class="label">Hands Won</span><span class="value">${s.handsWon}</span></div>
             <div class="stats-row"><span class="label">Total Net</span><span class="value ${netClass}">${netSign}${formatChips(Math.abs(s.totalNet))}</span></div>
-            <div class="stats-row"><span class="label">Biggest Win</span><span class="value">${formatChips(s.biggestWin)}</span></div>
-            <div class="stats-row"><span class="label">Biggest Pot Seen</span><span class="value">${formatChips(s.biggestPot)}</span></div>
+            <div class="stats-row"><span class="label">Biggest Win</span><span class="value">${formatChips(s.biggestWin || 0)}</span></div>
+            <div class="stats-row"><span class="label">Biggest Pot Seen</span><span class="value">${formatChips(s.biggestPot || 0)}</span></div>
             <div class="stats-row"><span class="label">VPIP</span><span class="value">${vpipPct}%</span></div>
             <div class="stats-row"><span class="label">PFR</span><span class="value">${pfrPct}%</span></div>
             <div class="stats-row"><span class="label">Showdown Win%</span><span class="value">${sdWinPct}%</span></div>
@@ -134,7 +326,7 @@ class PokerApp {
 
         const all = this.history.getAll().slice().reverse();
         if (all.length === 0) {
-            tableEl.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-dim);padding:20px">No hands recorded yet. Play a hand to start tracking.</td></tr>';
+            tableEl.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:20px">No hands recorded yet. Play a hand to start tracking.</td></tr>';
             return;
         }
         tableEl.innerHTML = all.map(rec => {
@@ -142,33 +334,26 @@ class PokerApp {
             const netSign = net > 0 ? '+' : '';
             const netClass = net > 0 ? 'positive' : net < 0 ? 'negative' : '';
             const result = { win: 'Won', loss: 'Lost', fold: 'Folded', chop: 'Chopped' }[rec.humanResult] || rec.humanResult;
-            const winnerHand = (rec.pots[0]?.winners[0]?.handName) || '—';
-            const street = rec.finalStreet === 'showdown-uncontested' ? 'uncontested' : rec.finalStreet;
+            const winnerHand = (rec.pots?.[0]?.winners?.[0]?.handName) || '—';
+
+            const renderCode = (code) => {
+                if (!code) return '';
+                const rank = code.slice(0, code.length - 1);
+                const suit = { h: 'hearts', d: 'diamonds', c: 'clubs', s: 'spades' }[code.slice(-1)];
+                return miniCardHTML({ rank: rank === 'T' ? '10' : rank, suit });
+            };
+            const yourCards = (rec.humanHoleCards || []).map(renderCode).join('');
+            const boardCards = (rec.community || []).map(renderCode).join('');
+
             return `<tr>
                 <td>#${rec.handNumber}</td>
                 <td>${result}</td>
                 <td class="${netClass}">${netSign}${formatChips(Math.abs(net))}</td>
-                <td>${street}</td>
+                <td class="hand-cards"><div class="mini-cards">${yourCards || '—'}</div></td>
+                <td class="hand-cards"><div class="mini-cards">${boardCards || '—'}</div></td>
                 <td>${winnerHand}</td>
             </tr>`;
         }).join('');
-    }
-
-    _initMuteButton() {
-        const btn = document.getElementById('btn-mute');
-        if (!btn) return;
-        const render = () => {
-            btn.textContent = this.audio.muted ? '🔇' : '🔊';
-            btn.setAttribute('aria-label', this.audio.muted ? 'Unmute sound' : 'Mute sound');
-            btn.classList.toggle('muted', this.audio.muted);
-        };
-        render();
-        btn.addEventListener('click', () => {
-            this.audio.toggleMute();
-            this.audio.resumeIfSuspended();
-            if (!this.audio.muted) this.audio.play('chip-light');
-            render();
-        });
     }
 
     _loadSettings() {
@@ -181,23 +366,28 @@ class PokerApp {
         localStorage.setItem('poker.settings.v1', JSON.stringify({ ...cur, ...partial }));
     }
 
+    // ---------------- Game setup ----------------
+
     _buildPlayerList(count) {
         const STRATEGY_POOL = ['Shark', 'Maniac', 'Rock', 'Fish', 'Wildcard'];
-        const NAME_POOL = [
-            'Alex', 'Maya', 'Remy', 'Jin', 'Sam', 'Priya', 'Kai', 'Nina', 'Oscar',
-            'Leo', 'Ivy', 'Theo', 'Zoe', 'Dana', 'Ravi', 'Mila', 'Eli', 'Luna'
-        ];
-        const shuffledNames = [...NAME_POOL].sort(() => Math.random() - 0.5);
+        // Gender-balanced: shuffle both pools, interleave
+        const males = [...NAME_POOL_MALE].sort(() => Math.random() - 0.5);
+        const females = [...NAME_POOL_FEMALE].sort(() => Math.random() - 0.5);
         const aiCount = count - 1;
+        const allNames = [];
+        const targetFemale = Math.round(aiCount * 0.5);
+        for (let i = 0; i < targetFemale && i < females.length; i++) allNames.push(females[i]);
+        for (let i = 0; i < aiCount - targetFemale && i < males.length; i++) allNames.push(males[i]);
+        // Shuffle so seating is mixed
+        allNames.sort(() => Math.random() - 0.5);
+
         const strategies = [];
-        for (let i = 0; i < aiCount; i++) {
-            strategies.push(STRATEGY_POOL[i % STRATEGY_POOL.length]);
-        }
+        for (let i = 0; i < aiCount; i++) strategies.push(STRATEGY_POOL[i % STRATEGY_POOL.length]);
         strategies.sort(() => Math.random() - 0.5);
 
         const players = [{ name: 'You', isHuman: true, strategy: null }];
         for (let i = 0; i < aiCount; i++) {
-            players.push({ name: shuffledNames[i], isHuman: false, strategy: strategies[i] });
+            players.push({ name: allNames[i], isHuman: false, strategy: strategies[i] });
         }
         return players;
     }
@@ -222,7 +412,6 @@ class PokerApp {
 
         this.game = new Game();
         this.game.aiController = new AIController();
-
         this.game.setupPlayers(this._buildPlayerList(count));
 
         this.tableRenderer = new TableRenderer(tableArea);
@@ -230,9 +419,7 @@ class PokerApp {
         this.actionPanel = new ActionPanel(this.game);
 
         this._bindGameEvents();
-
         this._updateGameInfo();
-
         this.game.startGame();
     }
 
@@ -297,6 +484,10 @@ class PokerApp {
             }
         });
 
+        g.on('allInRunout', () => {
+            ml.show('All In — running it out!', 3000);
+        });
+
         g.on('dealCommunityCards', (data) => {
             tr.dealCommunityCards(data.cards, data.all);
             const streetNames = { flop: 'Flop', turn: 'Turn', river: 'River' };
@@ -336,11 +527,8 @@ class PokerApp {
             }
 
             if (this._currentRec && data.player.isHuman) {
-                const streetMap = {
-                    preflop: 'preflop', flop: 'flop', turn: 'turn', river: 'river'
-                };
                 this._currentRec.humanActions.push({
-                    street: streetMap[g.phase] || g.phase,
+                    street: g.phase,
                     type,
                     amount: data.action.amount || 0
                 });
@@ -349,9 +537,11 @@ class PokerApp {
 
         g.on('bettingRoundEnd', (data) => {
             tr.setActivePlayer(null);
-            tr.clearBets();
-            tr.clearAllActions();
-            tr.updatePot(data.totalPot, data.pots);
+            tr.flyBetsToPot(g.players, () => {
+                tr.clearBets();
+                tr.clearAllActions();
+                tr.updatePot(data.totalPot, data.pots);
+            });
         });
 
         g.on('handWonUncontested', (data) => {
@@ -368,6 +558,7 @@ class PokerApp {
                 }];
                 this._currentRec.finalStreet = 'showdown-uncontested';
                 this._finalizeHandRecord();
+                this._maybeShowStatsHint();
             }
         });
 
@@ -375,18 +566,24 @@ class PokerApp {
             for (const e of data.evaluations) {
                 tr.revealPlayerCards(e.player);
             }
-            this._showShowdownOverlay(data);
+            this._pendingShowdown = data;
+            // Delay actual overlay until potsAwarded so we can show winners + awards
         });
 
         g.on('potsAwarded', (data) => {
-            for (const award of data.awards) {
-                const player = g.players[award.playerIndex];
-                tr.updatePlayer(player);
-                tr.showWinner(award.playerIndex);
-                ml.show(`${this._winVerbName(player)} ${formatChips(award.amount)} with ${data.evaluations.find(e => e.playerIndex === award.playerIndex)?.eval.name || 'best hand'}!`, 6000);
-            }
+            // Fly pot chips to winner(s) before updating UI
+            const winnerIndices = [...new Set(data.awards.map(a => a.playerIndex))];
+            tr.flyPotToWinners(winnerIndices, () => {
+                for (const award of data.awards) {
+                    const player = g.players[award.playerIndex];
+                    tr.updatePlayer(player);
+                    tr.showWinner(award.playerIndex);
+                }
+            });
             audio.play('win');
             this._updateGameInfo();
+
+            this._showShowdownOverlay(this._pendingShowdown, data);
 
             if (this._currentRec) {
                 const potMap = {};
@@ -403,58 +600,156 @@ class PokerApp {
                 this._currentRec.pots = Object.values(potMap);
                 this._currentRec.finalStreet = 'showdown';
                 this._finalizeHandRecord();
+                this._maybeShowStatsHint();
             }
         });
 
         g.on('hideShowdown', () => {
             const overlay = document.getElementById('showdown-overlay');
-            overlay.classList.add('fading');
-            setTimeout(() => {
-                overlay.classList.remove('visible', 'fading');
-            }, 400);
+            overlay.classList.remove('visible');
+            if (this._showdownCountdownId) {
+                clearInterval(this._showdownCountdownId);
+                this._showdownCountdownId = null;
+            }
         });
 
         g.on('gameOver', (data) => {
             const overlay = document.getElementById('showdown-overlay');
-            overlay?.classList.remove('visible', 'fading');
+            overlay?.classList.remove('visible');
             tr.setActivePlayer(null);
 
+            const humanWon = data.winner?.isHuman;
             const winMsg = data.winner
                 ? `Game Over! ${this._winVerbName(data.winner)} the tournament!`
                 : 'Game Over!';
             ml.show(winMsg, 0);
 
+            if (humanWon) {
+                this._launchConfetti();
+            }
+
             setTimeout(() => {
                 this._showGameOverStats();
                 document.getElementById('start-screen').style.display = '';
-                document.getElementById('start-btn').textContent = 'PLAY AGAIN';
-            }, 2000);
+                document.getElementById('start-btn').textContent = 'Play Again';
+            }, humanWon ? 3500 : 2000);
         });
     }
 
-    _showShowdownOverlay(data) {
+    // ---------------- Showdown overlay (rebuilt) ----------------
+
+    _showShowdownOverlay(showdownData, awardsData) {
         const overlay = document.getElementById('showdown-overlay');
         const content = document.getElementById('showdown-content');
+        if (!overlay || !content) return;
 
-        let html = '<h2>Showdown</h2>';
-        for (const e of data.evaluations) {
-            const cards = e.player.holeCards.map(c => {
-                const color = (c.suit === 'hearts' || c.suit === 'diamonds') ? 'red' : 'black';
-                const symbols = { hearts: '\u2665', diamonds: '\u2666', clubs: '\u2663', spades: '\u2660' };
-                return `<span style="color:${color};font-weight:bold">${c.rank}${symbols[c.suit]}</span>`;
-            }).join(' ');
+        const evals = showdownData.evaluations;
+        const community = showdownData.communityCards || [];
 
-            html += `
-                <div class="showdown-hand">
-                    <span class="showdown-player-name">${e.player.name}</span>
-                    <span class="showdown-hand-cards">${cards}</span>
-                    <span class="showdown-hand-name">${e.name}</span>
-                </div>
-            `;
+        // Build award lookup by seat
+        const awardsBySeat = {};
+        for (const award of awardsData.awards) {
+            awardsBySeat[award.playerIndex] = (awardsBySeat[award.playerIndex] || 0) + award.amount;
         }
 
-        content.innerHTML = html;
+        const boardHTML = community.map(microCardHTML).join('');
+
+        // Include folded players so audit is clear, but mute them
+        const allPlayersInHand = this.game.players.filter(p => !p.isSittingOut);
+        const evalBySeat = {};
+        for (const e of evals) evalBySeat[e.playerIndex] = e;
+
+        const rows = allPlayersInHand
+            .sort((a, b) => {
+                const awardA = awardsBySeat[a.seatIndex] || 0;
+                const awardB = awardsBySeat[b.seatIndex] || 0;
+                if (awardA !== awardB) return awardB - awardA;
+                return (evalBySeat[b.seatIndex]?.eval?.score || 0) - (evalBySeat[a.seatIndex]?.eval?.score || 0);
+            })
+            .map(p => {
+                const isWinner = (awardsBySeat[p.seatIndex] || 0) > 0;
+                const isFolded = p.isFolded;
+                const evalInfo = evalBySeat[p.seatIndex];
+                const handName = evalInfo?.eval?.name || '';
+                const cardsHTML = (p.holeCards || []).map(microCardHTML).join('');
+                const gender = NAME_GENDER[p.name] || 'male';
+
+                const resultHTML = isFolded
+                    ? `<span class="award folded-tag">Folded</span>`
+                    : isWinner
+                        ? `<span class="hand-name">${handName}</span>
+                           <span class="award">+${formatChips(awardsBySeat[p.seatIndex])}</span>`
+                        : `<span class="hand-name">${handName}</span>
+                           <span class="award" style="color:var(--ink-faint);font-weight:600">—</span>`;
+
+                const avatarBg = avatarBgGradient(p.name, gender);
+                return `<div class="showdown-row${isWinner ? ' winner' : ''}${isFolded ? ' folded' : ''}">
+                    <div class="showdown-player">
+                        <div class="sd-avatar" style="background:${avatarBg};display:flex;align-items:center;justify-content:center;">
+                            <span style="font-family:'DM Serif Display',serif;font-size:13px;color:rgba(255,255,255,0.95)">${avatarInitial(p.name)}</span>
+                        </div>
+                        <span class="sd-name">${p.name}${p.isHuman ? ' (You)' : ''}</span>
+                    </div>
+                    <div class="showdown-cards">${cardsHTML || '<span style="color:var(--ink-faint);font-size:11px">—</span>'}</div>
+                    <div class="showdown-result">${resultHTML}</div>
+                </div>`;
+            }).join('');
+
+        content.innerHTML = `
+            <h2>Showdown</h2>
+            <div class="board-strip">${boardHTML}</div>
+            ${rows}
+            <div id="showdown-continue-wrap">
+                <button id="showdown-continue">Next Hand</button>
+                <span id="showdown-countdown">Auto-continue in 5s</span>
+            </div>
+        `;
+
         overlay.classList.add('visible');
+
+        // Pause on showdown — user must click continue OR wait for countdown
+        const countdownEl = document.getElementById('showdown-countdown');
+        const continueBtn = document.getElementById('showdown-continue');
+        let seconds = 5;
+
+        const advance = () => {
+            if (this._showdownCountdownId) {
+                clearInterval(this._showdownCountdownId);
+                this._showdownCountdownId = null;
+            }
+            overlay.classList.remove('visible');
+            this.game.signalShowdownContinue?.();
+        };
+
+        continueBtn?.addEventListener('click', advance, { once: true });
+
+        this._showdownCountdownId = setInterval(() => {
+            seconds--;
+            if (countdownEl) countdownEl.textContent = `Auto-continue in ${seconds}s`;
+            if (seconds <= 0) advance();
+        }, 1000);
+    }
+
+    _finalizeHandRecord() {
+        const rec = this._currentRec;
+        if (!rec || !this.game) return;
+
+        for (const seat of rec.seats) {
+            const p = this.game.players[seat.seatIndex];
+            if (p) seat.endChips = p.chips;
+        }
+
+        const humanSeat = rec.seats.find(s => s.isHuman);
+        if (humanSeat) {
+            rec.humanNet = humanSeat.endChips - humanSeat.startChips;
+            if (rec.humanActions.some(a => a.type === 'fold')) rec.humanResult = 'fold';
+            else if (rec.humanNet > 0) rec.humanResult = 'win';
+            else if (rec.humanNet === 0) rec.humanResult = 'chop';
+            else rec.humanResult = 'loss';
+        }
+
+        this.history.appendHand(rec);
+        this._currentRec = null;
     }
 
     _showGameOverStats() {
@@ -488,7 +783,7 @@ class PokerApp {
             <div class="stats-row"><span class="label">Your Finish</span><span class="value">#${humanRank} of ${g.players.length}</span></div>
             <div class="stats-row"><span class="label">Net Result</span><span class="value ${netClass}">${netPrefix}${formatChips(Math.abs(netResult))}</span></div>
             <div class="stats-standings">
-                <div class="stats-row"><span class="label" style="font-weight:600;color:var(--text-light)">Final Standings</span><span class="value" style="color:var(--text-dim)">Chips</span></div>
+                <div class="stats-row"><span class="label" style="font-weight:600;color:var(--ink)">Final Standings</span><span class="value" style="color:var(--ink-dim)">Chips</span></div>
                 ${standingsHtml}
             </div>
         `;
@@ -499,17 +794,50 @@ class PokerApp {
         return player.isHuman ? 'You win' : `${player.name} wins`;
     }
 
+    _launchConfetti() {
+        const colors = ['#e1b959', '#f2d07a', '#39c06b', '#5aa9ff', '#e5564a', '#ffffff', '#c89a3a'];
+        const total = 120;
+        for (let i = 0; i < total; i++) {
+            const el = document.createElement('div');
+            el.className = 'confetti-piece';
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const size = 5 + Math.random() * 7;
+            const isCircle = Math.random() > 0.4;
+            el.style.cssText = `
+                left:${Math.random() * 100}vw;
+                background:${color};
+                width:${size}px;height:${size}px;
+                border-radius:${isCircle ? '50%' : '2px'};
+                animation-duration:${2.2 + Math.random() * 1.8}s;
+                animation-delay:${Math.random() * 0.8}s;
+                --tx:${(Math.random() - 0.5) * 240}px;
+                --rot:${Math.floor(Math.random() * 3) * 360 + 180}deg;
+            `;
+            document.body.appendChild(el);
+            setTimeout(() => el.remove(), 5500);
+        }
+    }
+
     _updateGameInfo() {
         const infoEl = document.getElementById('game-info');
-        if (!this.game) return;
+        if (!this.game) { infoEl.innerHTML = ''; return; }
         const handNum = this.game.handNumber || 0;
         const blinds = this.game.blindLevel;
         const activePlayers = this.game.activePlayers.length;
         const total = this.game.players.length;
+
+        // Next blind level preview
+        const nextIdx = (this.game.blindLevelIndex || 0) + 1;
+        const nextBlinds = BLIND_SCHEDULE[nextIdx];
+        const interval = DEFAULT_CONFIG.blindEscalationHands;
+        const handsUntilNext = interval - ((handNum - 1) % interval);
+        const showNext = nextBlinds && handNum >= 1 && handsUntilNext > 0 && handsUntilNext <= interval;
+
         infoEl.innerHTML = `
-            <span>Hand #${handNum}</span>
-            <span>Blinds: ${formatChips(blinds.small)}/${formatChips(blinds.big)}</span>
-            <span>Players: ${activePlayers}/${total}</span>
+            <span class="chip-tag"><span class="label">Hand</span><span class="value">#${handNum}</span></span>
+            <span class="chip-tag blinds"><span class="label">Blinds</span><span class="value">${formatChips(blinds.small)}/${formatChips(blinds.big)}</span></span>
+            ${showNext ? `<span class="chip-tag next-blinds"><span class="label">Next</span><span class="value">${formatChips(nextBlinds.small)}/${formatChips(nextBlinds.big)} · ${handsUntilNext}h</span></span>` : ''}
+            <span class="chip-tag"><span class="label">Players</span><span class="value">${activePlayers}/${total}</span></span>
         `;
     }
 }
