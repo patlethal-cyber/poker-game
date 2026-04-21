@@ -395,7 +395,7 @@ class PokerApp {
     startNewGame() {
         if (this.game) {
             this.game.stopGame();
-            this.game._listeners = {};
+            this.game.removeAllListeners();
         }
         if (this.tableRenderer) {
             this.tableRenderer.dispose();

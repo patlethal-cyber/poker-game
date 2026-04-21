@@ -211,4 +211,9 @@ export class EventEmitter {
             callback(...args);
         }
     }
+
+    removeAllListeners() {
+        this._listeners = {};
+        return this;
+    }
 }
