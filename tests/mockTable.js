@@ -20,6 +20,12 @@ export class HeadlessTable {
         this.game._delay = () => Promise.resolve();
         this.game.aiController = new AIController();
 
+        // Real UI resolves _showdownContinueResolver by clicking "Next Hand".
+        // Headless: auto-resolve on potsAwarded so playHand can return.
+        this.game.on('potsAwarded', () => {
+            queueMicrotask(() => this.game.signalShowdownContinue?.());
+        });
+
         const strategies = assignPersonalities(tableSize);
         // Seat 0 = reference "Shark" bot (stand-in for human player baseline).
         const players = [{ name: 'Ref', isHuman: false, strategy: 'Shark' }];

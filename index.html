@@ -75,10 +75,15 @@
 }
 
 @media (max-width: 1099px) { :root { --scale: 0.92; } }
-@media (max-width: 899px)  { :root { --scale: 0.84; } }
-@media (max-width: 699px)  { :root { --scale: 0.76; } }
-@media (max-width: 499px)  { :root { --scale: 0.68; --seat-w: calc(118px * var(--scale)); } }
-@media (max-width: 359px)  { :root { --scale: 0.60; } }
+@media (max-width: 899px)  { :root { --scale: 0.82; } }
+@media (max-width: 799px)  { :root { --scale: 0.74; } }
+@media (max-width: 699px)  { :root { --scale: 0.66; --seat-w: calc(132px * var(--scale)); } }
+@media (max-width: 620px)  { :root { --scale: 0.60; --seat-w: calc(124px * var(--scale)); } }
+
+/* Short-landscape (mobile rotated) — height drives the scale, not width. */
+@media (orientation: landscape) and (max-height: 450px) { :root { --scale: 0.58; } }
+@media (orientation: landscape) and (max-height: 400px) { :root { --scale: 0.52; } }
+@media (orientation: landscape) and (max-height: 370px) { :root { --scale: 0.48; } }
 
 html, body {
     height: 100%;
@@ -1178,12 +1183,41 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
     #top-bar { padding: 6px 10px; }
     #message-text { font-size: 11px; }
     .icon-btn { width: 32px; height: 32px; font-size: 14px; }
-    #table-area { width: min(92vw, 1000px); max-height: calc(100dvh - 160px); margin-top: 34px; }
-    #action-panel { padding: 6px 10px calc(4px + env(safe-area-inset-bottom)) 10px; gap: 6px; }
-    .action-btn { min-height: 36px; font-size: 12px; min-width: 0; }
+    #table-area { width: min(94vw, 1000px); max-height: calc(100dvh - 140px); margin-top: 30px; }
+    #action-panel { padding: 5px 8px calc(4px + env(safe-area-inset-bottom)) 8px; gap: 5px; }
+    .action-btn { min-height: 34px; font-size: 12px; min-width: 0; padding: 0 10px; }
     #btn-all-in { font-size: 10px; }
-    .quick-bet { min-height: 30px; font-size: 10.5px; padding: 0 8px; }
+    .quick-bet { min-height: 28px; font-size: 10.5px; padding: 0 8px; }
     #raise-slider { height: 20px; }
+}
+
+/* Even shorter — iPhone 13/14/15 landscape is ~390-430px tall. Make the
+   action panel compact enough to leave real estate for the table. */
+@media (max-height: 430px) and (orientation: landscape) {
+    #top-bar { padding: 4px 8px; }
+    .icon-btn { width: 28px; height: 28px; font-size: 13px; }
+    #top-bar #game-info { font-size: 10px; gap: 4px; }
+    #table-area { width: min(96vw, 1000px); max-height: calc(100dvh - 120px); margin-top: 22px; }
+    #action-panel { padding: 4px 6px calc(2px + env(safe-area-inset-bottom)) 6px; gap: 4px; }
+    .action-btn { min-height: 30px; font-size: 11px; padding: 0 8px; }
+    .action-row { gap: 4px; }
+    .quick-bets { gap: 3px; }
+    .quick-bet { min-height: 26px; font-size: 10px; padding: 0 6px; }
+    #raise-slider { height: 18px; }
+    #raise-input { height: 26px; font-size: 12px; }
+    /* Hide the "Next $/$ - Nh" pill on very short screens — blind info still
+       visible via the main blinds pill, the next-level detail is too much. */
+    #game-info .chip-tag.next-blinds { display: none; }
+}
+
+/* Smallest supported: iPhone SE-ish landscape (667x375 or 568x320 if old). */
+@media (max-height: 370px) and (orientation: landscape) {
+    #top-bar { padding: 3px 6px; }
+    .icon-btn { width: 26px; height: 26px; font-size: 12px; }
+    #table-area { max-height: calc(100dvh - 104px); margin-top: 18px; }
+    #action-panel { padding: 3px 5px calc(2px + env(safe-area-inset-bottom)) 5px; gap: 3px; }
+    .action-btn { min-height: 28px; font-size: 10.5px; padding: 0 6px; }
+    .quick-bet { min-height: 24px; font-size: 9.5px; }
 }
 
 /* Thinking dots (kept as a subtle fallback) */

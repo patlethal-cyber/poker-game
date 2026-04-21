@@ -85,9 +85,16 @@ export class TableRenderer {
 
     _tableRadii() {
         const total = this.totalSeats;
-        const narrow = window.innerWidth < 600;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const veryTight = w < 720 || h < 400;
+        const narrow = w < 900 || h < 500;
+        if (veryTight) {
+            // Phone landscape: pull seats inward so cards + labels don't clip.
+            return total >= 8 ? [36, 41] : [35, 40];
+        }
         if (narrow) {
-            return total >= 8 ? [39, 43] : [38, 42];
+            return total >= 8 ? [40, 42] : [38, 41];
         }
         // Tighter radii for 8+ seats so left/right seats don't clip the table edge
         if (total >= 9)  return [44, 41];

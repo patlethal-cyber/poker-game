@@ -90,22 +90,32 @@ class PokerApp {
         const descEl = overlay.querySelector('.rotate-desc');
         const iconEl = overlay.querySelector('.rotate-icon');
         const isTouchDevice = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        // Minimum width we can fit the game into. Below this the layout breaks
+        // regardless of scale. 620px catches all modern phones in landscape
+        // (iPhone SE is 667, iPhone 13 mini is 780, everything else is larger).
+        const MIN_WIDTH = 620;
 
         const check = () => {
-            const wide = window.innerWidth >= window.innerHeight;
-            const minWidth = window.innerWidth >= 900;
-            const blocked = !wide || !minWidth;
+            const portrait = window.innerHeight > window.innerWidth;
+            const tooNarrow = window.innerWidth < MIN_WIDTH;
+            const touch = isTouchDevice();
+            const blocked = portrait || tooNarrow;
             overlay.classList.toggle('visible', blocked);
 
             if (blocked && titleEl && descEl) {
-                if (isTouchDevice() && !wide) {
+                if (touch) {
                     if (iconEl) iconEl.textContent = '📱';
-                    titleEl.textContent = 'Please rotate your phone to landscape';
-                    descEl.textContent = 'This game needs landscape mode to fit the full table. If your screen stays locked, check your system rotation settings.';
+                    if (portrait) {
+                        titleEl.textContent = 'Please rotate to landscape';
+                        descEl.textContent = 'This game plays best in landscape. Rotate your phone, or check if rotation lock is on.';
+                    } else {
+                        titleEl.textContent = 'Screen too narrow';
+                        descEl.textContent = "Your phone's screen isn't wide enough for the table. A slightly larger device or a tablet will work better.";
+                    }
                 } else {
                     if (iconEl) iconEl.textContent = '🖥️';
-                    titleEl.textContent = 'Your browser window is too narrow';
-                    descEl.textContent = 'This game needs a wider screen to fit the full table. Please expand your browser window, or press F11 to go fullscreen.';
+                    titleEl.textContent = 'Browser window too narrow';
+                    descEl.textContent = `This game needs at least ${MIN_WIDTH}px of width. Please widen your browser window or press F11 to go fullscreen.`;
                 }
             }
         };
