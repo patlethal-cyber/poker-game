@@ -1,5 +1,5 @@
 import { PHASES, DEFAULT_CONFIG, ACTIONS, BLIND_SCHEDULE, TIMING } from '../utils/constants.js';
-import { EventEmitter, delay } from '../utils/helpers.js';
+import { EventEmitter, abortableDelay } from '../utils/helpers.js';
 import { Deck } from './Deck.js';
 import { Player } from './Player.js';
 import { PotManager } from './PotManager.js';
@@ -29,6 +29,7 @@ export class Game extends EventEmitter {
         this._paused = false;
         this._pauseWaiters = [];
         this._showdownContinueResolver = null;
+        this._abortCtrl = new AbortController();
     }
 
     setPaused(paused) {
@@ -46,10 +47,19 @@ export class Game extends EventEmitter {
         return new Promise(resolve => this._pauseWaiters.push(resolve));
     }
 
-    /* Delay that respects pause: any time we're paused, the timer is held. */
+    /* Delay that respects pause and abort. If the game is stopped mid-delay,
+       the timer bails out and the caller's while-loop sees isRunning=false. */
     async _delay(ms) {
+        if (this._abortCtrl.signal.aborted) return;
         await this._awaitUnpaused();
-        await delay(ms);
+        if (this._abortCtrl.signal.aborted) return;
+        try {
+            await abortableDelay(ms, this._abortCtrl.signal);
+        } catch (e) {
+            if (e.name !== 'AbortError') throw e;
+            return;
+        }
+        if (this._abortCtrl.signal.aborted) return;
         await this._awaitUnpaused();
     }
 
@@ -143,6 +153,17 @@ export class Game extends EventEmitter {
 
     stopGame() {
         this.isRunning = false;
+        this._abortCtrl.abort();
+        // Unblock any paused waiters so _delay can return promptly.
+        const waiters = this._pauseWaiters;
+        this._pauseWaiters = [];
+        waiters.forEach(w => w());
+        // Unblock a showdown-continue waiter if one exists.
+        if (this._showdownContinueResolver) {
+            const r = this._showdownContinueResolver;
+            this._showdownContinueResolver = null;
+            r();
+        }
     }
 
     _checkBlindEscalation() {
