@@ -400,6 +400,7 @@ class PokerApp {
         if (this.tableRenderer) {
             this.tableRenderer.dispose();
         }
+        document.querySelectorAll('.confetti-piece').forEach(el => el.remove());
 
         document.getElementById('start-screen').style.display = 'none';
         const statsEl = document.getElementById('game-over-stats');
