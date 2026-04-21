@@ -388,8 +388,13 @@ export class Game extends EventEmitter {
             return callAction || checkAction || { type: ACTIONS.FOLD };
         }
 
+        const cc = this.communityCards;
+        const street = cc.length === 0 ? 'preflop'
+                     : cc.length === 3 ? 'flop'
+                     : cc.length === 4 ? 'turn'
+                     : 'river';
         const gameState = {
-            communityCards: [...this.communityCards],
+            communityCards: [...cc],
             pot: this.potManager.totalPot + this._currentRoundBets(),
             currentBet: this.bettingRound.currentBet,
             minRaise: this.bettingRound.lastRaiseAmount,
@@ -398,6 +403,11 @@ export class Game extends EventEmitter {
             holeCards: player.holeCards,
             numActivePlayers: this.playersInHand.length,
             phase: this.phase,
+            street,
+            seatIndex: player.seatIndex,
+            dealerIndex: this.dealerIndex,
+            tableSize: this.players.length,
+            bigBlind: this.blindLevel.big,
             playersInfo: this.players.map(p => ({
                 name: p.name,
                 chips: p.chips,
