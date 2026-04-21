@@ -18,10 +18,10 @@ export const PROFILES = {
         name: 'Shark',
         noise: 0.06,
         openCutoff: {
-            preflop: { EP: 0.34, MP: 0.30, LP: 0.30, BLINDS: 0.26 },
-            flop: 0.30, turn: 0.34, river: 0.38
+            preflop: { EP: 0.42, MP: 0.38, LP: 0.36, BLINDS: 0.34 },
+            flop: 0.32, turn: 0.36, river: 0.40
         },
-        raiseFreq:     { preflop: 0.55, flop: 0.60, turn: 0.50, river: 0.40 },
+        raiseFreq:     { preflop: 0.85, flop: 0.65, turn: 0.55, river: 0.45 },
         threeBetFreq:  { preflop: 0.18, flop: 0.14, turn: 0.11, river: 0.08 },
         bluffFreq:     { preflop: 0.06, flop: 0.10, turn: 0.08, river: 0.06 },
         foldToBet:     { preflop: 1.00, flop: 0.95, turn: 0.92, river: 0.88 },
@@ -32,10 +32,10 @@ export const PROFILES = {
         name: 'Maniac',
         noise: 0.12,
         openCutoff: {
-            preflop: { EP: 0.18, MP: 0.18, LP: 0.16, BLINDS: 0.16 },
-            flop: 0.22, turn: 0.26, river: 0.30
+            preflop: { EP: 0.22, MP: 0.20, LP: 0.20, BLINDS: 0.18 },
+            flop: 0.24, turn: 0.28, river: 0.32
         },
-        raiseFreq:     { preflop: 0.42, flop: 0.55, turn: 0.48, river: 0.40 },
+        raiseFreq:     { preflop: 0.55, flop: 0.72, turn: 0.60, river: 0.50 },
         threeBetFreq:  { preflop: 0.28, flop: 0.26, turn: 0.22, river: 0.18 },
         bluffFreq:     { preflop: 0.25, flop: 0.28, turn: 0.22, river: 0.18 },
         foldToBet:     { preflop: 0.55, flop: 0.55, turn: 0.60, river: 0.65 },
@@ -46,7 +46,7 @@ export const PROFILES = {
         name: 'Rock',
         noise: 0.04,
         openCutoff: {
-            preflop: { EP: 0.40, MP: 0.38, LP: 0.36, BLINDS: 0.34 },
+            preflop: { EP: 0.38, MP: 0.36, LP: 0.34, BLINDS: 0.32 },
             flop: 0.40, turn: 0.45, river: 0.50
         },
         raiseFreq:     { preflop: 0.15, flop: 0.18, turn: 0.14, river: 0.10 },
@@ -63,7 +63,7 @@ export const PROFILES = {
             preflop: { EP: 0.22, MP: 0.22, LP: 0.22, BLINDS: 0.18 },
             flop: 0.18, turn: 0.22, river: 0.25
         },
-        raiseFreq:     { preflop: 0.12, flop: 0.14, turn: 0.10, river: 0.08 },
+        raiseFreq:     { preflop: 0.05, flop: 0.14, turn: 0.10, river: 0.08 },
         threeBetFreq:  { preflop: 0.04, flop: 0.03, turn: 0.02, river: 0.01 },
         bluffFreq:     { preflop: 0.02, flop: 0.02, turn: 0.01, river: 0.00 },
         // Defining trait: Fish station-calls — foldToBet is well under GTO strict
@@ -118,16 +118,22 @@ function _cutoffFor(profile, street, position) {
 
 /* ---------- decision helpers ---------- */
 
-/** Should the bot raise for value based on strength + frequency? */
+/** Should the bot raise for value based on strength + frequency?
+ *  Preflop: any hand above openCutoff mixes at raiseFreq (tight-aggressive
+ *           raise-or-fold philosophy; marginal hands mix at the same rate
+ *           rather than bleeding into calls).
+ *  Postflop: strong hands at raiseFreq; marginal hands at threeBetFreq. */
 export function shouldRaiseGTO(strength, position, street, profile) {
     const cutoff = _cutoffFor(profile, street, position);
     if (strength < cutoff) return false;
+    if (street === 'preflop') {
+        return Math.random() < profile.raiseFreq[street];
+    }
     const valueThresh = profile.valueThresh[street];
     if (strength >= valueThresh) {
         return Math.random() < profile.raiseFreq[street];
     }
-    // Marginal holding — mix in at half the 3-bet frequency as a thin raise
-    return Math.random() < profile.threeBetFreq[street] * 0.5;
+    return Math.random() < profile.threeBetFreq[street];
 }
 
 /** Should the bot turn a weak hand into a bluff raise? */
@@ -139,13 +145,30 @@ export function shouldBluff(strength, pot, stack, street, profile) {
     return Math.random() < profile.bluffFreq[street];
 }
 
+/** Lowest open-cutoff across all positions for this street. Used as a floor
+ *  so strategies don't limp-call hands below their open range when facing a bet. */
+function _minCutoff(profile, street) {
+    const v = profile.openCutoff[street];
+    if (typeof v === 'number') return v;
+    let m = Infinity;
+    for (const k of Object.keys(v)) if (v[k] < m) m = v[k];
+    return m;
+}
+
 /** Facing a bet, should the bot call?
- *  Base GTO: call iff strength >= potOdds. Fish deviates by station-calling
- *  some fraction of unfavorable spots via foldToBet < 1. */
+ *  Tightened GTO with role-specific station tendency:
+ *  - Free check (potOdds = 0): always yes. No cost to see the next card.
+ *  - strength below min-open-cutoff AND facing a bet: fold (Fish deviates).
+ *  - strength >= potOdds: call (standard).
+ *  - strength < potOdds: fold with probability foldToBet, else station-call. */
 export function shouldCallPotOdds(strength, potOdds, street, profile) {
+    if (potOdds <= 0) return true;
+    const floor = _minCutoff(profile, street);
+    if (strength < floor) {
+        // Below our open range vs. a bet — Fish still calls some of the time.
+        return Math.random() > profile.foldToBet[street];
+    }
     if (strength >= potOdds) return true;
-    // strength < potOdds — GTO says fold. We fold with probability foldToBet,
-    // station-call with probability (1 - foldToBet).
     return Math.random() > profile.foldToBet[street];
 }
 

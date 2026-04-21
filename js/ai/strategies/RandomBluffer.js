@@ -40,7 +40,7 @@ export class RandomBluffer {
             }
         }
 
-        if (Math.random() < 0.10) {
+        if (Math.random() < 0.05) {
             return this._chaosDecision(validActions);
         }
         return this.currentStrategy.decide(gameState, validActions);
@@ -48,8 +48,10 @@ export class RandomBluffer {
 
     _chaosDecision(validActions) {
         const r = Math.random();
-        if (r < 0.15) return allInIfAvailable(validActions);
-        if (r < 0.50) {
+        // Chaos all-in is rare and signature; raise + call + check fill out
+        // the rest. Bounded to avoid tanking Wildcard's bb/100.
+        if (r < 0.08) return allInIfAvailable(validActions);
+        if (r < 0.45) {
             const raiseAction = validActions.find(a => a.type === 'raise' || a.type === 'bet');
             if (raiseAction) {
                 const size = raiseAction.minAmount +
@@ -57,7 +59,7 @@ export class RandomBluffer {
                 return buildRaise(validActions, size);
             }
         }
-        if (r < 0.75) return callOrCheck(validActions);
+        if (r < 0.80) return callOrCheck(validActions);
         return foldOrCheck(validActions);
     }
 
