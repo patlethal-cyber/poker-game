@@ -1,68 +1,43 @@
-import { ACTIONS } from '../../utils/constants.js';
 import { HandEvaluator } from '../../game/HandEvaluator.js';
-import { callStackRatio } from './utils.js';
+import {
+    callStackRatio, getPotOdds,
+    foldOrCheck, callOrCheck, buildRaise, allInIfAvailable
+} from './utils.js';
+import {
+    PROFILES, applyNoise, derivePosition, streetFromGameState,
+    shouldRaiseGTO, shouldBluff, shouldCallPotOdds, gtoBetSize
+} from './gto.js';
 
 export class LooseAggressive {
     constructor() {
         this.name = 'Maniac';
+        this.profile = PROFILES.Maniac;
     }
 
     decide(gameState, validActions) {
-        const strength = HandEvaluator.estimateStrength(gameState.holeCards, gameState.communityCards);
-        const noise = (Math.random() - 0.5) * 0.12;
-        const adjusted = Math.max(0, Math.min(1, strength + noise));
+        const profile = this.profile;
+        const rawStrength = HandEvaluator.estimateStrength(gameState.holeCards, gameState.communityCards);
+        const strength = applyNoise(rawStrength, profile.noise);
+        const street = streetFromGameState(gameState);
+        const position = derivePosition(gameState.seatIndex, gameState.dealerIndex, gameState.tableSize);
         const stackRisk = callStackRatio(validActions, gameState.playerChips);
+        const potOdds = getPotOdds(gameState, validActions);
 
-        if (gameState.communityCards.length === 0) {
-            return this._preflopDecision(adjusted, stackRisk, gameState, validActions);
+        // Signature chaos trait: rare bluff all-in on later streets.
+        if (street !== 'preflop' && strength < profile.valueThresh[street] && Math.random() < 0.04) {
+            return allInIfAvailable(validActions);
         }
-        return this._postflopDecision(adjusted, stackRisk, gameState, validActions);
-    }
+        if (stackRisk > 0.75 && strength < 0.55) return foldOrCheck(validActions);
 
-    _preflopDecision(strength, stackRisk, gameState, validActions) {
-        if (strength < 0.18) return { type: ACTIONS.FOLD };
-
-        if (stackRisk > 0.5 && strength < 0.45) return { type: ACTIONS.FOLD };
-        if (stackRisk > 0.8 && strength < 0.60) return { type: ACTIONS.FOLD };
-
-        if (Math.random() < 0.40) {
-            const raiseAction = validActions.find(a => a.type === ACTIONS.RAISE || a.type === ACTIONS.BET);
-            if (raiseAction) {
-                const size = Math.floor(raiseAction.minAmount * (1.2 + Math.random() * 0.8));
-                return { type: raiseAction.type, amount: Math.min(size, raiseAction.maxAmount) };
-            }
+        if (shouldRaiseGTO(strength, position, street, profile) ||
+            shouldBluff(strength, gameState.pot, gameState.playerChips, street, profile)) {
+            const size = gtoBetSize(gameState.pot, gameState.playerChips, street, profile, gameState.bigBlind);
+            return buildRaise(validActions, size);
         }
 
-        const callAction = validActions.find(a => a.type === ACTIONS.CALL);
-        const checkAction = validActions.find(a => a.type === ACTIONS.CHECK);
-        return callAction ? { type: ACTIONS.CALL, amount: callAction.amount } : (checkAction ? { type: ACTIONS.CHECK } : { type: ACTIONS.FOLD });
-    }
-
-    _postflopDecision(strength, stackRisk, gameState, validActions) {
-        if (stackRisk > 0.5 && strength < 0.30) {
-            const check = validActions.find(a => a.type === ACTIONS.CHECK);
-            return check ? { type: ACTIONS.CHECK } : { type: ACTIONS.FOLD };
+        if (shouldCallPotOdds(strength, potOdds, street, profile)) {
+            return callOrCheck(validActions);
         }
-
-        const isBluff = Math.random() < 0.30;
-
-        if (strength > 0.25 || isBluff) {
-            const raiseAction = validActions.find(a => a.type === ACTIONS.RAISE || a.type === ACTIONS.BET);
-            if (raiseAction && Math.random() < 0.65) {
-                const pot = gameState.pot;
-                const size = Math.floor(pot * (0.5 + Math.random() * 0.6));
-                return { type: raiseAction.type, amount: Math.max(raiseAction.minAmount, Math.min(size, raiseAction.maxAmount)) };
-            }
-            const callAction = validActions.find(a => a.type === ACTIONS.CALL);
-            if (callAction && stackRisk < 0.4) return { type: ACTIONS.CALL, amount: callAction.amount };
-        }
-
-        if (isBluff && Math.random() < 0.12 && strength > 0.15) {
-            const allIn = validActions.find(a => a.type === ACTIONS.ALL_IN);
-            if (allIn) return { type: ACTIONS.ALL_IN, amount: allIn.amount };
-        }
-
-        const checkAction = validActions.find(a => a.type === ACTIONS.CHECK);
-        return checkAction ? { type: ACTIONS.CHECK } : { type: ACTIONS.FOLD };
+        return foldOrCheck(validActions);
     }
 }
