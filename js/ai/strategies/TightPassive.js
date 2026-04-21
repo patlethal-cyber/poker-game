@@ -1,65 +1,41 @@
-import { ACTIONS } from '../../utils/constants.js';
 import { HandEvaluator } from '../../game/HandEvaluator.js';
-import { callStackRatio } from './utils.js';
+import {
+    callStackRatio, getPotOdds,
+    foldOrCheck, callOrCheck, buildRaise
+} from './utils.js';
+import {
+    PROFILES, applyNoise, derivePosition, streetFromGameState,
+    shouldRaiseGTO, shouldBluff, shouldCallPotOdds, gtoBetSize
+} from './gto.js';
 
 export class TightPassive {
     constructor() {
         this.name = 'Rock';
+        this.profile = PROFILES.Rock;
     }
 
     decide(gameState, validActions) {
-        const strength = HandEvaluator.estimateStrength(gameState.holeCards, gameState.communityCards);
-        const noise = (Math.random() - 0.5) * 0.04;
-        const adjusted = Math.max(0, Math.min(1, strength + noise));
+        const profile = this.profile;
+        const rawStrength = HandEvaluator.estimateStrength(gameState.holeCards, gameState.communityCards);
+        const strength = applyNoise(rawStrength, profile.noise);
+        const street = streetFromGameState(gameState);
+        const position = derivePosition(gameState.seatIndex, gameState.dealerIndex, gameState.tableSize);
         const stackRisk = callStackRatio(validActions, gameState.playerChips);
+        const potOdds = getPotOdds(gameState, validActions);
 
-        if (gameState.communityCards.length === 0) {
-            return this._preflopDecision(adjusted, stackRisk, validActions);
-        }
-        return this._postflopDecision(adjusted, stackRisk, gameState, validActions);
-    }
+        // Rock is extra stack-averse.
+        if (stackRisk > 0.35 && strength < 0.70) return foldOrCheck(validActions);
+        if (stackRisk > 0.15 && strength < 0.55) return foldOrCheck(validActions);
 
-    _preflopDecision(strength, stackRisk, validActions) {
-        if (strength < 0.40) return { type: ACTIONS.FOLD };
-
-        if (stackRisk > 0.15 && strength < 0.55) return { type: ACTIONS.FOLD };
-        if (stackRisk > 0.35 && strength < 0.70) return { type: ACTIONS.FOLD };
-
-        if (strength > 0.75 && Math.random() < 0.10) {
-            const raiseAction = validActions.find(a => a.type === ACTIONS.RAISE || a.type === ACTIONS.BET);
-            if (raiseAction) return { type: raiseAction.type, amount: raiseAction.minAmount };
+        if (shouldRaiseGTO(strength, position, street, profile) ||
+            shouldBluff(strength, gameState.pot, gameState.playerChips, street, profile)) {
+            const size = gtoBetSize(gameState.pot, gameState.playerChips, street, profile, gameState.bigBlind);
+            return buildRaise(validActions, size);
         }
 
-        const callAction = validActions.find(a => a.type === ACTIONS.CALL);
-        const checkAction = validActions.find(a => a.type === ACTIONS.CHECK);
-        return callAction ? { type: ACTIONS.CALL, amount: callAction.amount } : (checkAction ? { type: ACTIONS.CHECK } : { type: ACTIONS.FOLD });
-    }
-
-    _postflopDecision(strength, stackRisk, gameState, validActions) {
-        if (stackRisk > 0.20 && strength < 0.45) {
-            const check = validActions.find(a => a.type === ACTIONS.CHECK);
-            return check ? { type: ACTIONS.CHECK } : { type: ACTIONS.FOLD };
+        if (shouldCallPotOdds(strength, potOdds, street, profile)) {
+            return callOrCheck(validActions);
         }
-
-        if (strength > 0.55) {
-            if (Math.random() < 0.10) {
-                const raiseAction = validActions.find(a => a.type === ACTIONS.RAISE || a.type === ACTIONS.BET);
-                if (raiseAction) return { type: raiseAction.type, amount: raiseAction.minAmount };
-            }
-            const callAction = validActions.find(a => a.type === ACTIONS.CALL);
-            const checkAction = validActions.find(a => a.type === ACTIONS.CHECK);
-            return callAction ? { type: ACTIONS.CALL, amount: callAction.amount } : (checkAction ? { type: ACTIONS.CHECK } : { type: ACTIONS.FOLD });
-        }
-
-        if (strength > 0.25) {
-            const checkAction = validActions.find(a => a.type === ACTIONS.CHECK);
-            if (checkAction) return { type: ACTIONS.CHECK };
-            const callAction = validActions.find(a => a.type === ACTIONS.CALL);
-            if (callAction && stackRisk < 0.10) return { type: ACTIONS.CALL, amount: callAction.amount };
-            return { type: ACTIONS.FOLD };
-        }
-
-        const checkAction = validActions.find(a => a.type === ACTIONS.CHECK);
-        return checkAction ? { type: ACTIONS.CHECK } : { type: ACTIONS.FOLD };
+        return foldOrCheck(validActions);
     }
 }
