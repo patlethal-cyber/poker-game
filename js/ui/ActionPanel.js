@@ -83,6 +83,34 @@ export class ActionPanel {
         quickBets.forEach(btn => {
             btn.addEventListener('click', () => this._applyQuickBet(btn.dataset.quick));
         });
+
+        this._keyHandler = (e) => this._onKeyDown(e);
+        document.addEventListener('keydown', this._keyHandler);
+    }
+
+    _onKeyDown(e) {
+        if (!this.panel.classList.contains('visible')) return;
+        const tag = (document.activeElement?.tagName || '').toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+        const key = e.key.toLowerCase();
+        if (key === 'f') {
+            e.preventDefault();
+            this.btnFold.click();
+        } else if (key === 'c') {
+            e.preventDefault();
+            this.btnCheckCall.click();
+        } else if (key === 'r') {
+            if (this.btnRaise.style.display === 'none') return;
+            e.preventDefault();
+            this.raiseInput.focus();
+            this.raiseInput.select?.();
+        } else if (key === 'a') {
+            if (this.btnAllIn.style.display === 'none') return;
+            e.preventDefault();
+            this.btnAllIn.click();
+        }
     }
 
     _applyQuickBet(kind) {

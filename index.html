@@ -1889,6 +1889,19 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
 }
 
 /* ============================================================
+   ACCESSIBILITY — reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+    .confetti-piece { display: none !important; }
+    #pot-display.grow { animation: none !important; }
+}
+
+/* ============================================================
    ROTATE / NARROW VIEWPORT OVERLAY
    ============================================================ */
 
@@ -1940,7 +1953,7 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
     <div id="game-container">
         <!-- TOP BAR -->
         <div id="top-bar">
-            <span id="message-text"></span>
+            <span id="message-text" aria-live="polite" aria-atomic="true"></span>
             <div id="game-info"></div>
             <div id="top-right-controls">
                 <button id="btn-rankings" class="icon-btn" type="button" data-tip="Hand rankings" aria-label="Hand rankings">?</button>
@@ -1999,32 +2012,32 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
         </div>
 
         <!-- Showdown -->
-        <div id="showdown-overlay">
+        <div id="showdown-overlay" role="dialog" aria-modal="true" aria-label="Showdown results">
             <div id="showdown-content"></div>
         </div>
 
         <!-- Pause -->
-        <div id="pause-overlay">
-            <div class="pause-icon">❙❙</div>
-            <h2>Paused</h2>
+        <div id="pause-overlay" role="dialog" aria-modal="true" aria-labelledby="pause-title">
+            <div class="pause-icon" aria-hidden="true">❙❙</div>
+            <h2 id="pause-title">Paused</h2>
             <p>The game is paused. Take your time — next action will wait.</p>
             <button id="btn-resume" type="button">Resume</button>
         </div>
 
         <!-- Hand rankings -->
-        <div id="rankings-screen">
+        <div id="rankings-screen" role="dialog" aria-modal="true" aria-labelledby="rankings-title">
             <div class="rankings-inner">
                 <button class="rankings-close" id="btn-rankings-close" aria-label="Close">×</button>
-                <h2>Hand Rankings</h2>
+                <h2 id="rankings-title">Hand Rankings</h2>
                 <div id="rankings-body"></div>
             </div>
         </div>
 
         <!-- History -->
-        <div id="history-screen">
+        <div id="history-screen" role="dialog" aria-modal="true" aria-labelledby="history-title">
             <div class="history-inner">
                 <div class="history-header">
-                    <h2>Hand History</h2>
+                    <h2 id="history-title">Hand History</h2>
                     <button id="btn-history-close" class="history-close" aria-label="Close history">×</button>
                 </div>
                 <div id="history-stats" class="history-stats"></div>
@@ -2074,9 +2087,9 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
     </div>
 
     <!-- Rotate / narrow-window gate — shown whenever width < height or width < 900px -->
-    <div id="rotate-overlay">
-        <div class="rotate-icon">📱</div>
-        <h2 class="rotate-title">Please rotate your phone to landscape</h2>
+    <div id="rotate-overlay" role="dialog" aria-modal="true" aria-labelledby="rotate-title">
+        <div class="rotate-icon" aria-hidden="true">📱</div>
+        <h2 class="rotate-title" id="rotate-title">Please rotate your phone to landscape</h2>
         <p class="rotate-desc">This game needs landscape mode to fit the full table. If your screen stays locked, check your system rotation settings.</p>
     </div>
 
