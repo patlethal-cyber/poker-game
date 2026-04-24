@@ -13,12 +13,15 @@ A browser-based no-limit Texas Hold'em game. You vs. 3–9 AI opponents with fiv
 ## Running locally
 
 ```bash
+npm install             # Install dependencies (including @vercel/speed-insights)
 python3 serve.py        # http://localhost:8080
 # or
 python3 -m http.server  # http://localhost:8000
 ```
 
 ES modules require an HTTP server — opening `index.html` via `file://` will not work.
+
+**Note:** After `npm install`, the Speed Insights module is automatically copied to `js/vendor/` via the postinstall hook.
 
 ## Architecture
 
@@ -41,3 +44,14 @@ js/
 3. Subsequent pushes to `main` auto-deploy.
 
 `vercel.json` is static-only (no serverless functions needed).
+
+### Vercel Speed Insights
+
+This project includes Vercel Speed Insights to monitor Web Vitals and performance metrics. To enable it:
+
+1. Go to your project dashboard on vercel.com
+2. Navigate to the Speed Insights tab
+3. Click "Enable Speed Insights"
+4. Deploy your project (automatic on push to main)
+
+Speed Insights will automatically start collecting performance data after deployment. Note that it only tracks data in production mode, not during local development.

@@ -1,0 +1,21 @@
+{
+  "name": "poker-game",
+  "version": "1.0.0",
+  "description": "Texas Hold'em Poker Game",
+  "type": "module",
+  "scripts": {
+    "build": "mkdir -p js/vendor && cp node_modules/@vercel/speed-insights/dist/index.mjs js/vendor/speed-insights.mjs",
+    "dev": "python3 serve.py",
+    "postinstall": "npm run build"
+  },
+  "keywords": [
+    "poker",
+    "texas-holdem",
+    "game"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@vercel/speed-insights": "^1.0.12"
+  }
+}

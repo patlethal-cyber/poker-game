@@ -3,3 +3,4 @@ node_modules/
 .vercel/
 *.log
 .claude/launch.json
+js/vendor/
