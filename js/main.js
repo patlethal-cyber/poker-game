@@ -3,7 +3,7 @@ import { AIController } from './ai/AIController.js';
 import { assignPersonalities } from './ai/RoleAssigner.js';
 import { TableRenderer } from './ui/TableRenderer.js';
 import { ActionPanel } from './ui/ActionPanel.js';
-import { MessageLog } from './ui/MessageLog.js';
+import { Toast } from './ui/Toast.js';
 import { AudioManager } from './ui/AudioManager.js';
 import { HistoryStore } from './storage/HistoryStore.js';
 import {
@@ -48,7 +48,7 @@ class PokerApp {
         this.game = null;
         this.tableRenderer = null;
         this.actionPanel = null;
-        this.messageLog = null;
+        this.toast = null;
         this.audio = null;
         this.history = null;
         this._currentRec = null;
@@ -60,7 +60,7 @@ class PokerApp {
         // i18n must run first so all subsequent renders use the current language
         i18n.init();
 
-        this.messageLog = new MessageLog();
+        this.toast = new Toast();
         this.audio = new AudioManager();
         this.history = new HistoryStore();
         this._initTopBar();
@@ -521,6 +521,8 @@ class PokerApp {
             this.tableRenderer.dispose();
         }
         document.querySelectorAll('.confetti-piece').forEach(el => el.remove());
+        // Dismiss any sticky toasts (e.g. "Game Over!") so the new game starts clean
+        this.toast?.clear();
 
         document.getElementById('start-screen').style.display = 'none';
         const statsEl = document.getElementById('game-over-stats');
@@ -551,7 +553,7 @@ class PokerApp {
         const g = this.game;
         const tr = this.tableRenderer;
         const ap = this.actionPanel;
-        const ml = this.messageLog;
+        const toast = this.toast;
         const audio = this.audio;
 
         g.on('newHand', (data) => {
@@ -559,11 +561,11 @@ class PokerApp {
             tr.moveDealerButton(g.dealerIndex);
             for (const p of g.players) tr.updatePlayer(p);
             setTimeout(() => tr.movePositionLabels(g.smallBlindIndex, g.bigBlindIndex), 50);
-            ml.show(t('toast.hand_start', {
+            toast.show(t('toast.hand_start', {
                 n: data.handNumber,
                 sb: formatChips(data.blinds.small),
                 bb: formatChips(data.blinds.big)
-            }), 4000);
+            }), { type: 'info', duration: 3500 });
             this._updateGameInfo();
 
             this._currentRec = {
@@ -592,10 +594,10 @@ class PokerApp {
         });
 
         g.on('blindsUp', (data) => {
-            ml.show(t('toast.blinds_up', {
+            toast.show(t('toast.blinds_up', {
                 sb: formatChips(data.level.small),
                 bb: formatChips(data.level.big)
-            }), 5000);
+            }), { type: 'blinds' });
             audio.play('blinds-up');
             this._updateGameInfo();
         });
@@ -616,13 +618,14 @@ class PokerApp {
         });
 
         g.on('allInRunout', () => {
-            ml.show(t('toast.all_in_runout'), 3000);
+            toast.show(t('toast.all_in_runout'), { type: 'warning' });
         });
 
         g.on('dealCommunityCards', (data) => {
             tr.dealCommunityCards(data.cards, data.all);
             const streetKey = { flop: 'toast.dealing_flop', turn: 'toast.dealing_turn', river: 'toast.dealing_river' }[data.street];
-            if (streetKey) ml.show(t(streetKey), 2000);
+            // Street announcement is redundant with the card animation itself —
+            // skip the toast for these to reduce notification noise.
             audio.play('deal');
             if (this._currentRec) {
                 this._currentRec.community = (data.all || []).map(cardToCode);
@@ -680,7 +683,7 @@ class PokerApp {
             const msg = data.winner.isHuman
                 ? t('toast.you_win', { amount })
                 : t('toast.someone_wins', { name: data.winner.name, amount });
-            ml.show(msg, 3000);
+            toast.show(msg, { type: 'success' });
             tr.updatePlayer(data.winner);
             tr.showWinner(data.winner.seatIndex);
             audio.play('win');
@@ -764,7 +767,8 @@ class PokerApp {
                 : humanWon
                     ? t('toast.game_over_human')
                     : t('toast.game_over_ai', { name: data.winner.name });
-            ml.show(winMsg, 0);
+            // Game-over message stays sticky until user clicks Play Again
+            toast.show(winMsg, { type: humanWon ? 'success' : 'info', duration: 0 });
 
             if (humanWon) {
                 this._launchConfetti();
