@@ -197,7 +197,12 @@ export class ActionPanel {
         }
 
         if (allInAction) {
-            this.btnAllIn.textContent = t('action.all_in_amount', { amount: formatChips(allInAction.amount) });
+            // Mobile-portrait shows just "All In" (saves horizontal space in the
+            // 4-column quick-bet grid). Desktop / landscape includes the amount.
+            const compact = document.body.classList.contains('mobile-portrait');
+            this.btnAllIn.textContent = compact
+                ? t('action.all_in')
+                : t('action.all_in_amount', { amount: formatChips(allInAction.amount) });
             this.btnAllIn.style.display = '';
         } else {
             this.btnAllIn.style.display = 'none';

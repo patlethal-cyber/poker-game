@@ -138,10 +138,12 @@ class PokerApp {
     // ---------------- Orientation / viewport gate ----------------
 
     _initOrientationCheck() {
-        // Minimum width we can fit the game into. Below this the layout breaks
-        // regardless of scale. 620px catches all modern phones in landscape
-        // (iPhone SE is 667, iPhone 13 mini is 780, everything else is larger).
-        this._orientationMinWidth = 620;
+        // Mobile = touch device with shortest side < this threshold.
+        // 850 leaves iPad mini portrait (744) on the desktop layout while
+        // every iPhone (max short side ~430) qualifies as mobile.
+        this._mobileMaxShortSide = 850;
+        // Desktop minimum width — below this we still warn on desktop.
+        this._desktopMinWidth = 620;
         this._refreshOrientationText = this._refreshOrientationText.bind(this);
         window.addEventListener('resize', this._refreshOrientationText);
         window.addEventListener('orientationchange', this._refreshOrientationText);
@@ -154,30 +156,46 @@ class PokerApp {
         const titleEl = overlay.querySelector('.rotate-title');
         const descEl = overlay.querySelector('.rotate-desc');
         const iconEl = overlay.querySelector('.rotate-icon');
-        const MIN_WIDTH = this._orientationMinWidth || 620;
+        const MOBILE_MAX = this._mobileMaxShortSide || 850;
+        const DESKTOP_MIN = this._desktopMinWidth || 620;
         const isTouchDevice = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-        const portrait = window.innerHeight > window.innerWidth;
-        const tooNarrow = window.innerWidth < MIN_WIDTH;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        const portrait = h > w;
         const touch = isTouchDevice();
-        const blocked = portrait || tooNarrow;
+        const isMobile = touch && Math.min(w, h) < MOBILE_MAX;
+
+        // Block conditions:
+        //   - Mobile + landscape  → ask user to rotate to portrait (REVERSED)
+        //   - Desktop too narrow  → ask user to widen browser
+        let blocked = false;
+        let titleKey = null;
+        let descKey = null;
+        let descParams = {};
+        let iconText = '📱';
+
+        if (isMobile && !portrait) {
+            blocked = true;
+            titleKey = 'rotate.title_to_portrait';
+            descKey = 'rotate.desc_to_portrait';
+            iconText = '📱';
+        } else if (!isMobile && w < DESKTOP_MIN) {
+            blocked = true;
+            titleKey = 'rotate.title_too_narrow';
+            descKey = 'rotate.desc_too_narrow';
+            descParams = { w: DESKTOP_MIN };
+            iconText = '🖥️';
+        }
+
         overlay.classList.toggle('visible', blocked);
+        // Tag <body> so portrait-specific CSS in index.html can apply.
+        document.body.classList.toggle('mobile-portrait', isMobile && portrait);
 
         if (!blocked || !titleEl || !descEl) return;
-        if (touch) {
-            if (iconEl) iconEl.textContent = '📱';
-            if (portrait) {
-                titleEl.textContent = t('rotate.title_to_landscape');
-                descEl.textContent = t('rotate.desc_to_landscape');
-            } else {
-                titleEl.textContent = t('rotate.title_phone_narrow');
-                descEl.textContent = t('rotate.desc_phone_narrow');
-            }
-        } else {
-            if (iconEl) iconEl.textContent = '🖥️';
-            titleEl.textContent = t('rotate.title_too_narrow');
-            descEl.textContent = t('rotate.desc_too_narrow', { w: MIN_WIDTH });
-        }
+        if (iconEl) iconEl.textContent = iconText;
+        titleEl.textContent = t(titleKey);
+        descEl.textContent = t(descKey, descParams);
     }
 
     // ---------------- Top bar: mute, pause, rankings, stats hint ----------------
