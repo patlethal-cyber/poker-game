@@ -853,6 +853,7 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    padding: 4px;
 }
 
 .card-back {
@@ -890,68 +891,54 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
 .card.red .card-front   { color: #c5222a; }
 .card.black .card-front { color: #1a1a1a; }
 
-/* Corner rank+suit */
-.card-corner {
-    position: absolute;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    line-height: 0.92;
-    font-family: 'DM Serif Display', Georgia, serif;
-}
-.card-corner-top    { top: 4px; left: 5px; }
-.card-corner-bottom { bottom: 4px; right: 5px; transform: rotate(180deg); }
-
-.card-corner .rank {
-    font-size: calc(var(--card-w) * 0.30);
-    font-weight: 400;
-    letter-spacing: -0.5px;
-}
-.card-corner .suit {
-    font-size: calc(var(--card-w) * 0.22);
-    font-family: 'Manrope', sans-serif;
-    font-weight: 900;
-    margin-top: 1px;
-    line-height: 1;
-}
-
-/* Center pip */
+/* ----- Compact card layout (rank above suit, centered, no corners) ----- */
 .card-center {
-    font-size: calc(var(--card-w) * 0.62);
-    line-height: 1;
-    font-family: 'Manrope', sans-serif;
-    font-weight: 900;
-}
-.card.face-card .card-center {
-    font-family: 'DM Serif Display', Georgia, serif;
-    font-size: calc(var(--card-w) * 0.72);
-    font-weight: 400;
-    line-height: 0.9;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
+    line-height: 1;
+    width: 100%;
+    height: 100%;
 }
-.card.face-card .card-center .face-suit {
-    font-family: 'Manrope', sans-serif;
-    font-size: calc(var(--card-w) * 0.28);
-    margin-top: 2px;
-    font-weight: 900;
-}
-/* Ace center pip */
-.card.rank-A .card-center { font-size: calc(var(--card-w) * 0.82); }
 
-/* Small cards (on opponent seats) */
+.card-rank {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-weight: 400;
+    font-size: calc(var(--card-w) * 0.55);
+    letter-spacing: -0.5px;
+    line-height: 1;
+}
+
+.card-suit {
+    font-family: 'Manrope', sans-serif;
+    font-weight: 900;
+    font-size: calc(var(--card-w) * 0.42);
+    line-height: 1;
+    margin-top: calc(var(--card-w) * 0.04);
+}
+
+/* Slightly larger rank glyph for the Ace */
+.card.rank-A .card-rank { font-size: calc(var(--card-w) * 0.62); }
+
+/* "10" needs a touch less width since it's the only two-character rank */
+.card-rank { letter-spacing: -1px; }
+
+/* Small cards (on opponent + human seats) — same compact layout, smaller box.
+   Sizes derive from --card-w via the .card.small overrides below.            */
 .card.small {
     width: calc(42px * var(--scale));
     height: calc(60px * var(--scale));
 }
-.card.small .card-corner { top: 3px; left: 3px; }
-.card.small .card-corner-bottom { top: auto; left: auto; bottom: 3px; right: 3px; }
-.card.small .card-corner .rank { font-size: calc(42px * var(--scale) * 0.34); }
-.card.small .card-corner .suit { font-size: calc(42px * var(--scale) * 0.26); }
-.card.small .card-center { font-size: calc(42px * var(--scale) * 0.55); }
-.card.small.face-card .card-center { font-size: calc(42px * var(--scale) * 0.6); }
-.card.small.rank-A .card-center { font-size: calc(42px * var(--scale) * 0.75); }
+.card.small .card-front { padding: 3px; }
+.card.small .card-rank {
+    font-size: calc(42px * var(--scale) * 0.50);
+}
+.card.small .card-suit {
+    font-size: calc(42px * var(--scale) * 0.38);
+    margin-top: 1px;
+}
+.card.small.rank-A .card-rank { font-size: calc(42px * var(--scale) * 0.58); }
 
 /* Micro cards (showdown overlay) */
 .card.micro {
