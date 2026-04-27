@@ -1997,24 +1997,37 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
             <span id="message-text" aria-live="polite" aria-atomic="true"></span>
             <div id="game-info"></div>
             <div id="top-right-controls">
-                <button id="btn-rankings" class="icon-btn" type="button" data-tip="Hand rankings" aria-label="Hand rankings">?</button>
-                <button id="btn-history" class="icon-btn" type="button" data-tip="Stats &amp; history" aria-label="View history">
+                <button id="btn-rankings" class="icon-btn" type="button"
+                        data-tip="Hand rankings" aria-label="Hand rankings"
+                        data-i18n-attr="data-tip:top.rankings;aria-label:top.rankings">?</button>
+                <button id="btn-history" class="icon-btn" type="button"
+                        data-tip="Stats &amp; history" aria-label="View history"
+                        data-i18n-attr="data-tip:top.history;aria-label:top.history">
                     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l3-3 3 3 5-5"/></svg>
                 </button>
-                <button id="btn-pause" class="icon-btn" type="button" data-tip="Pause" aria-label="Pause game">
+                <button id="btn-pause" class="icon-btn" type="button"
+                        data-tip="Pause" aria-label="Pause game"
+                        data-i18n-attr="data-tip:top.pause;aria-label:top.pause">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>
                 </button>
-                <button id="btn-mute" class="icon-btn" type="button" data-tip="Mute sound" aria-label="Mute sound">
+                <button id="btn-mute" class="icon-btn" type="button"
+                        data-tip="Mute sound" aria-label="Mute sound"
+                        data-i18n-attr="data-tip:top.mute;aria-label:top.mute">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
                 </button>
+                <button id="btn-lang" class="icon-btn lang-btn" type="button"
+                        data-tip="Switch to Chinese" aria-label="Switch to Chinese"
+                        data-i18n="top.lang_switch"
+                        data-i18n-attr="data-tip:top.lang_tooltip;aria-label:top.lang_tooltip">中</button>
             </div>
         </div>
 
         <!-- First-time stats hint -->
         <div id="stats-hint">
-            <button id="stats-hint-close" aria-label="Dismiss">×</button>
-            <b>Your stats are here.</b><br>
-            Track hands played, VPIP, showdown win % and more.
+            <button id="stats-hint-close" aria-label="Dismiss"
+                    data-i18n-attr="aria-label:hint.dismiss">×</button>
+            <b data-i18n="hint.stats_title">Your stats are here.</b><br>
+            <span data-i18n="hint.stats_body">Track hands played, VPIP, showdown win % and more.</span>
         </div>
 
         <!-- TABLE -->
@@ -2033,9 +2046,9 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
         <!-- ACTION PANEL (3 buttons: Fold / Check-or-Call / Raise. All In is a quick-bet) -->
         <div id="action-panel">
             <div class="action-row action-row-primary">
-                <button class="action-btn" id="btn-fold">Fold</button>
-                <button class="action-btn" id="btn-check-call">Check</button>
-                <button class="action-btn" id="btn-raise">Raise</button>
+                <button class="action-btn" id="btn-fold" data-i18n="action.fold">Fold</button>
+                <button class="action-btn" id="btn-check-call" data-i18n="action.check">Check</button>
+                <button class="action-btn" id="btn-raise" data-i18n="action.raise_to">Raise to</button>
             </div>
             <div class="action-row action-row-raise" id="raise-controls">
                 <input type="range" id="raise-slider" min="0" max="1000" value="0">
@@ -2044,10 +2057,10 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
                     <input type="number" inputmode="numeric" id="raise-input" min="0" max="1000" value="0">
                 </div>
                 <div class="quick-bets">
-                    <button class="quick-bet" data-quick="min">Min</button>
-                    <button class="quick-bet" data-quick="half">½ Pot</button>
-                    <button class="quick-bet" data-quick="pot">Pot</button>
-                    <button class="quick-bet" data-quick="allin" id="btn-all-in">All In</button>
+                    <button class="quick-bet" data-quick="min" data-i18n="action.quick.min">Min</button>
+                    <button class="quick-bet" data-quick="half" data-i18n="action.quick.half">½ Pot</button>
+                    <button class="quick-bet" data-quick="pot" data-i18n="action.quick.pot">Pot</button>
+                    <button class="quick-bet" data-quick="allin" id="btn-all-in" data-i18n="action.quick.allin">All In</button>
                 </div>
             </div>
         </div>
@@ -2060,16 +2073,18 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
         <!-- Pause -->
         <div id="pause-overlay" role="dialog" aria-modal="true" aria-labelledby="pause-title">
             <div class="pause-icon" aria-hidden="true">❙❙</div>
-            <h2 id="pause-title">Paused</h2>
-            <p>The game is paused. Take your time — next action will wait.</p>
-            <button id="btn-resume" type="button">Resume</button>
+            <h2 id="pause-title" data-i18n="pause.title">Paused</h2>
+            <p data-i18n="pause.body">The game is paused. Take your time — next action will wait.</p>
+            <button id="btn-resume" type="button" data-i18n="pause.resume">Resume</button>
         </div>
 
         <!-- Hand rankings -->
         <div id="rankings-screen" role="dialog" aria-modal="true" aria-labelledby="rankings-title">
             <div class="rankings-inner">
-                <button class="rankings-close" id="btn-rankings-close" aria-label="Close">×</button>
-                <h2 id="rankings-title">Hand Rankings</h2>
+                <button class="rankings-close" id="btn-rankings-close"
+                        aria-label="Close"
+                        data-i18n-attr="aria-label:common.close">×</button>
+                <h2 id="rankings-title" data-i18n="rankings.title">Hand Rankings</h2>
                 <div id="rankings-body"></div>
             </div>
         </div>
@@ -2078,29 +2093,31 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
         <div id="history-screen" role="dialog" aria-modal="true" aria-labelledby="history-title">
             <div class="history-inner">
                 <div class="history-header">
-                    <h2 id="history-title">Hand History</h2>
-                    <button id="btn-history-close" class="history-close" aria-label="Close history">×</button>
+                    <h2 id="history-title" data-i18n="history.title">Hand History</h2>
+                    <button id="btn-history-close" class="history-close"
+                            aria-label="Close history"
+                            data-i18n-attr="aria-label:common.close">×</button>
                 </div>
                 <div id="history-stats" class="history-stats"></div>
                 <div class="history-table-wrap">
                     <table class="history-table">
                         <thead>
                             <tr>
-                                <th>#</th>
-                                <th>Result</th>
-                                <th>Net</th>
-                                <th>Your Cards</th>
-                                <th>Board</th>
-                                <th>Won With</th>
+                                <th data-i18n="history.col.hand">#</th>
+                                <th data-i18n="history.col.result">Result</th>
+                                <th data-i18n="history.col.net">Net</th>
+                                <th data-i18n="history.col.your_cards">Your Cards</th>
+                                <th data-i18n="history.col.board">Board</th>
+                                <th data-i18n="history.col.winner">Won With</th>
                             </tr>
                         </thead>
                         <tbody id="history-table-body"></tbody>
                     </table>
                 </div>
                 <div class="history-actions">
-                    <button id="btn-history-export" class="history-btn">Export JSON</button>
-                    <button id="btn-history-import" class="history-btn">Import JSON</button>
-                    <button id="btn-history-clear" class="history-btn danger">Clear</button>
+                    <button id="btn-history-export" class="history-btn" data-i18n="history.export">Export JSON</button>
+                    <button id="btn-history-import" class="history-btn" data-i18n="history.import">Import JSON</button>
+                    <button id="btn-history-clear" class="history-btn danger" data-i18n="history.clear">Clear</button>
                     <input type="file" id="history-import-input" accept="application/json" style="display:none">
                 </div>
             </div>
@@ -2108,22 +2125,16 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
 
         <!-- Start -->
         <div id="start-screen">
-            <h1>Texas Hold'em</h1>
-            <p class="subtitle">No-Limit Poker · You vs AI Opponents</p>
+            <h1 data-i18n="start.title">Texas Hold'em</h1>
+            <p class="subtitle" data-i18n="start.subtitle">No-Limit Poker · You vs AI Opponents</p>
             <div class="start-config">
-                <label for="player-count">Players at the table</label>
+                <label for="player-count" data-i18n="start.player_count_label">Players at the table</label>
                 <select id="player-count">
-                    <option value="4">4 Players (you + 3 AI)</option>
-                    <option value="5">5 Players (you + 4 AI)</option>
-                    <option value="6" selected>6 Players (you + 5 AI)</option>
-                    <option value="7">7 Players (you + 6 AI)</option>
-                    <option value="8">8 Players (you + 7 AI)</option>
-                    <option value="9">9 Players (you + 8 AI)</option>
-                    <option value="10">10 Players (you + 9 AI)</option>
+                    <!-- Options are populated dynamically via main.js so labels translate -->
                 </select>
             </div>
             <div id="game-over-stats"></div>
-            <button id="start-btn">Deal Me In</button>
+            <button id="start-btn" data-i18n="start.deal_me_in">Deal Me In</button>
         </div>
     </div>
 

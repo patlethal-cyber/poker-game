@@ -4,7 +4,7 @@ import socketserver
 import os
 import sys
 
-PORT = 8080
+PORT = int(os.environ.get('PORT', 8080))
 
 # Change to the directory where this script lives
 os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))

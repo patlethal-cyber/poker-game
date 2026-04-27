@@ -12,6 +12,8 @@ import {
     avatarBgGradient
 } from './utils/helpers.js';
 import { BLIND_SCHEDULE, DEFAULT_CONFIG, HAND_NAMES, TIMING } from './utils/constants.js';
+import * as i18n from './i18n.js';
+const t = i18n.t;
 
 function cardToCode(c) {
     const rank = c.rank === '10' ? 'T' : c.rank;
@@ -55,15 +57,36 @@ class PokerApp {
     }
 
     init() {
+        // i18n must run first so all subsequent renders use the current language
+        i18n.init();
+
         this.messageLog = new MessageLog();
         this.audio = new AudioManager();
         this.history = new HistoryStore();
         this._initTopBar();
+        this._initLangToggle();
         this._initHistoryScreen();
         this._initRankingsScreen();
         this._initPauseControls();
         this._initVisibilityAutoPause();
         this._initOrientationCheck();
+
+        // Populate player-count select with i18n labels
+        const playerCountEl = document.getElementById('player-count');
+        const populatePlayerCount = () => {
+            if (!playerCountEl) return;
+            const prev = playerCountEl.value;
+            playerCountEl.innerHTML = '';
+            for (let n = 4; n <= 10; n++) {
+                const opt = document.createElement('option');
+                opt.value = String(n);
+                opt.textContent = t('start.player_count_opt', { n });
+                if (n === 6) opt.defaultSelected = true;
+                playerCountEl.appendChild(opt);
+            }
+            if (prev) playerCountEl.value = prev;
+        };
+        populatePlayerCount();
 
         const startBtn = document.getElementById('start-btn');
         startBtn.addEventListener('click', () => {
@@ -71,7 +94,6 @@ class PokerApp {
             this.startNewGame();
         });
 
-        const playerCountEl = document.getElementById('player-count');
         if (playerCountEl) {
             const saved = this._loadSettings().lastPlayerCount;
             if (saved && saved >= 4 && saved <= 10) playerCountEl.value = String(saved);
@@ -79,50 +101,83 @@ class PokerApp {
                 this._saveSettings({ lastPlayerCount: parseInt(playerCountEl.value) });
             });
         }
+
+        // Re-render dynamic content (modals, info bar) when language changes.
+        // Static labels via data-i18n are handled automatically by applyToDOM().
+        i18n.onChange(() => {
+            populatePlayerCount();
+            // Re-render dynamic-content modals if open
+            const historyOpen = document.getElementById('history-screen')?.classList.contains('visible');
+            if (historyOpen) this._renderHistory();
+            const rankingsOpen = document.getElementById('rankings-screen')?.classList.contains('visible');
+            if (rankingsOpen) this._renderRankings();
+            // Re-render game info bar
+            if (this.game) this._updateGameInfo();
+            // Re-render game-over stats panel if visible
+            const goEl = document.getElementById('game-over-stats');
+            if (goEl && goEl.style.display !== 'none' && this.game) this._showGameOverStats();
+            // Re-render orientation overlay text (if currently shown)
+            this._refreshOrientationText();
+            // Re-render showdown overlay if currently visible
+            const sdEl = document.getElementById('showdown-overlay');
+            if (sdEl?.classList.contains('visible') && this._pendingShowdown && this._pendingAwards) {
+                this._showShowdownOverlay(this._pendingShowdown, this._pendingAwards);
+            }
+        });
+    }
+
+    _initLangToggle() {
+        const btn = document.getElementById('btn-lang');
+        if (!btn) return;
+        btn.addEventListener('click', () => {
+            i18n.toggleLang();
+            // applyToDOM in i18n updates the button's text via data-i18n automatically
+        });
     }
 
     // ---------------- Orientation / viewport gate ----------------
 
     _initOrientationCheck() {
+        // Minimum width we can fit the game into. Below this the layout breaks
+        // regardless of scale. 620px catches all modern phones in landscape
+        // (iPhone SE is 667, iPhone 13 mini is 780, everything else is larger).
+        this._orientationMinWidth = 620;
+        this._refreshOrientationText = this._refreshOrientationText.bind(this);
+        window.addEventListener('resize', this._refreshOrientationText);
+        window.addEventListener('orientationchange', this._refreshOrientationText);
+        this._refreshOrientationText();
+    }
+
+    _refreshOrientationText() {
         const overlay = document.getElementById('rotate-overlay');
         if (!overlay) return;
         const titleEl = overlay.querySelector('.rotate-title');
         const descEl = overlay.querySelector('.rotate-desc');
         const iconEl = overlay.querySelector('.rotate-icon');
+        const MIN_WIDTH = this._orientationMinWidth || 620;
         const isTouchDevice = () => 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        // Minimum width we can fit the game into. Below this the layout breaks
-        // regardless of scale. 620px catches all modern phones in landscape
-        // (iPhone SE is 667, iPhone 13 mini is 780, everything else is larger).
-        const MIN_WIDTH = 620;
 
-        const check = () => {
-            const portrait = window.innerHeight > window.innerWidth;
-            const tooNarrow = window.innerWidth < MIN_WIDTH;
-            const touch = isTouchDevice();
-            const blocked = portrait || tooNarrow;
-            overlay.classList.toggle('visible', blocked);
+        const portrait = window.innerHeight > window.innerWidth;
+        const tooNarrow = window.innerWidth < MIN_WIDTH;
+        const touch = isTouchDevice();
+        const blocked = portrait || tooNarrow;
+        overlay.classList.toggle('visible', blocked);
 
-            if (blocked && titleEl && descEl) {
-                if (touch) {
-                    if (iconEl) iconEl.textContent = '📱';
-                    if (portrait) {
-                        titleEl.textContent = 'Please rotate to landscape';
-                        descEl.textContent = 'This game plays best in landscape. Rotate your phone, or check if rotation lock is on.';
-                    } else {
-                        titleEl.textContent = 'Screen too narrow';
-                        descEl.textContent = "Your phone's screen isn't wide enough for the table. A slightly larger device or a tablet will work better.";
-                    }
-                } else {
-                    if (iconEl) iconEl.textContent = '🖥️';
-                    titleEl.textContent = 'Browser window too narrow';
-                    descEl.textContent = `This game needs at least ${MIN_WIDTH}px of width. Please widen your browser window or press F11 to go fullscreen.`;
-                }
+        if (!blocked || !titleEl || !descEl) return;
+        if (touch) {
+            if (iconEl) iconEl.textContent = '📱';
+            if (portrait) {
+                titleEl.textContent = t('rotate.title_to_landscape');
+                descEl.textContent = t('rotate.desc_to_landscape');
+            } else {
+                titleEl.textContent = t('rotate.title_phone_narrow');
+                descEl.textContent = t('rotate.desc_phone_narrow');
             }
-        };
-
-        window.addEventListener('resize', check);
-        window.addEventListener('orientationchange', check);
-        check();
+        } else {
+            if (iconEl) iconEl.textContent = '🖥️';
+            titleEl.textContent = t('rotate.title_too_narrow');
+            descEl.textContent = t('rotate.desc_too_narrow', { w: MIN_WIDTH });
+        }
     }
 
     // ---------------- Top bar: mute, pause, rankings, stats hint ----------------
@@ -132,7 +187,8 @@ class PokerApp {
         const muteBtn = document.getElementById('btn-mute');
         const renderMute = () => {
             muteBtn.classList.toggle('muted', this.audio.muted);
-            muteBtn.setAttribute('aria-label', this.audio.muted ? 'Unmute sound' : 'Mute sound');
+            muteBtn.setAttribute('aria-label', this.audio.muted ? t('top.unmute') : t('top.mute'));
+            muteBtn.setAttribute('data-tip', this.audio.muted ? t('top.unmute') : t('top.mute'));
         };
         renderMute();
         muteBtn.addEventListener('click', () => {
@@ -141,6 +197,8 @@ class PokerApp {
             if (!this.audio.muted) this.audio.play('chip-light');
             renderMute();
         });
+        // Re-render mute label on language change
+        i18n.onChange(renderMute);
     }
 
     _initPauseControls() {
@@ -169,9 +227,15 @@ class PokerApp {
             overlay?.classList.add('visible');
             pauseBtn?.classList.add('paused');
             this.game.setPaused(true);
-            if (auto) {
-                const p = overlay?.querySelector('p');
-                if (p) p.textContent = 'Auto-paused because you switched tabs. Click Resume when ready.';
+            const p = overlay?.querySelector('p');
+            if (p) {
+                if (auto) {
+                    p.textContent = t('pause.auto_paused');
+                    delete p.dataset.i18n;  // disable auto re-render to keep custom message
+                } else {
+                    p.dataset.i18n = 'pause.body';
+                    p.textContent = t('pause.body');
+                }
             }
         } else {
             overlay?.classList.remove('visible');
@@ -187,51 +251,7 @@ class PokerApp {
         const body = document.getElementById('rankings-body');
         if (!open || !screen || !body) return;
 
-        const SAMPLES = {
-            'Royal Flush':      ['10h', 'Jh', 'Qh', 'Kh', 'Ah'],
-            'Straight Flush':   ['5s', '6s', '7s', '8s', '9s'],
-            'Four of a Kind':   ['Kh', 'Kd', 'Kc', 'Ks', '3h'],
-            'Full House':       ['Qh', 'Qd', 'Qc', '7h', '7d'],
-            'Flush':            ['2d', '6d', '9d', 'Jd', 'Kd'],
-            'Straight':         ['4h', '5c', '6d', '7s', '8h'],
-            'Three of a Kind':  ['9h', '9d', '9c', 'Jd', '4s'],
-            'Two Pair':         ['Ah', 'Ad', '8c', '8s', '2h'],
-            'One Pair':         ['Jh', 'Jd', '7c', '4s', '2d'],
-            'High Card':        ['Ad', 'Kc', '9h', '6s', '3d']
-        };
-        const EX = {
-            'Royal Flush':      '10, J, Q, K, A all same suit — the ultimate hand.',
-            'Straight Flush':   'Five in a row, all same suit.',
-            'Four of a Kind':   'Four cards of the same rank.',
-            'Full House':       'Three of a kind plus a pair.',
-            'Flush':            'Five cards of the same suit, any order.',
-            'Straight':         'Five in a row, mixed suits.',
-            'Three of a Kind':  'Three cards of the same rank.',
-            'Two Pair':         'Two different pairs.',
-            'One Pair':         'Two cards of the same rank.',
-            'High Card':        'Nothing matches — highest card plays.'
-        };
-
-        const parseCode = (code) => {
-            const rank = code.slice(0, code.length - 1);
-            const suit = { h: 'hearts', d: 'diamonds', c: 'clubs', s: 'spades' }[code.slice(-1)];
-            return { rank: rank === 'T' ? '10' : rank, suit };
-        };
-
-        const rankings = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
-        body.innerHTML = rankings.map(rank => {
-            const name = HAND_NAMES[rank];
-            const sample = (SAMPLES[name] || []).map(parseCode);
-            const cardsHTML = sample.map(microCardHTML).join('');
-            return `<div class="ranking-row">
-                <div class="rank-num">${rank}</div>
-                <div class="rank-info">
-                    <span class="rank-name">${name}</span>
-                    <span class="rank-ex">${EX[name] || ''}</span>
-                </div>
-                <div class="rank-sample">${cardsHTML}</div>
-            </div>`;
-        }).join('');
+        this._renderRankings();
 
         let lastFocused = null;
         const openModal = () => {
@@ -254,6 +274,45 @@ class PokerApp {
                 closeModal();
             }
         });
+    }
+
+    _renderRankings() {
+        const body = document.getElementById('rankings-body');
+        if (!body) return;
+
+        // Sample hand cards keyed by rank index (1..10). Internal-only data, not translated.
+        const SAMPLES = {
+            10: ['10h', 'Jh', 'Qh', 'Kh', 'Ah'],
+             9: ['5s', '6s', '7s', '8s', '9s'],
+             8: ['Kh', 'Kd', 'Kc', 'Ks', '3h'],
+             7: ['Qh', 'Qd', 'Qc', '7h', '7d'],
+             6: ['2d', '6d', '9d', 'Jd', 'Kd'],
+             5: ['4h', '5c', '6d', '7s', '8h'],
+             4: ['9h', '9d', '9c', 'Jd', '4s'],
+             3: ['Ah', 'Ad', '8c', '8s', '2h'],
+             2: ['Jh', 'Jd', '7c', '4s', '2d'],
+             1: ['Ad', 'Kc', '9h', '6s', '3d']
+        };
+
+        const parseCode = (code) => {
+            const rank = code.slice(0, code.length - 1);
+            const suit = { h: 'hearts', d: 'diamonds', c: 'clubs', s: 'spades' }[code.slice(-1)];
+            return { rank: rank === 'T' ? '10' : rank, suit };
+        };
+
+        const rankings = [10, 9, 8, 7, 6, 5, 4, 3, 2, 1];
+        body.innerHTML = rankings.map(rank => {
+            const sample = (SAMPLES[rank] || []).map(parseCode);
+            const cardsHTML = sample.map(microCardHTML).join('');
+            return `<div class="ranking-row">
+                <div class="rank-num">${rank}</div>
+                <div class="rank-info">
+                    <span class="rank-name">${t(`rank.${rank}.name`)}</span>
+                    <span class="rank-ex">${t(`rank.${rank}.desc`)}</span>
+                </div>
+                <div class="rank-sample">${cardsHTML}</div>
+            </div>`;
+        }).join('');
     }
 
     _maybeShowStatsHint() {
@@ -309,7 +368,7 @@ class PokerApp {
         btnExport?.addEventListener('click', () => this.history.exportJSON());
         btnImport?.addEventListener('click', () => importInput?.click());
         btnClear?.addEventListener('click', () => {
-            if (confirm('Clear all saved history? This cannot be undone.')) {
+            if (confirm(t('history.clear_confirm'))) {
                 this.history.clear();
                 this._renderHistory();
             }
@@ -320,9 +379,9 @@ class PokerApp {
             try {
                 await this.history.importJSON(file);
                 this._renderHistory();
-                alert('History imported successfully.');
+                alert(t('history.import_success'));
             } catch (err) {
-                alert('Import failed: ' + err.message);
+                alert(t('history.import_failed', { err: err.message }));
             }
             importInput.value = '';
         });
@@ -344,27 +403,31 @@ class PokerApp {
         const netClass = s.totalNet > 0 ? 'positive' : s.totalNet < 0 ? 'negative' : '';
 
         statsEl.innerHTML = `
-            <div class="stats-row"><span class="label">Hands Played</span><span class="value">${s.handsPlayed}</span></div>
-            <div class="stats-row"><span class="label">Hands Won</span><span class="value">${s.handsWon}</span></div>
-            <div class="stats-row"><span class="label">Total Net</span><span class="value ${netClass}">${netSign}${formatChips(Math.abs(s.totalNet))}</span></div>
-            <div class="stats-row"><span class="label">Biggest Win</span><span class="value">${formatChips(s.biggestWin || 0)}</span></div>
-            <div class="stats-row"><span class="label">Biggest Pot Seen</span><span class="value">${formatChips(s.biggestPot || 0)}</span></div>
-            <div class="stats-row"><span class="label">VPIP</span><span class="value">${vpipPct}%</span></div>
-            <div class="stats-row"><span class="label">PFR</span><span class="value">${pfrPct}%</span></div>
-            <div class="stats-row"><span class="label">Showdown Win%</span><span class="value">${sdWinPct}%</span></div>
+            <div class="stats-row"><span class="label">${t('history.stats.played')}</span><span class="value">${s.handsPlayed}</span></div>
+            <div class="stats-row"><span class="label">${t('history.stats.won')}</span><span class="value">${s.handsWon}</span></div>
+            <div class="stats-row"><span class="label">${t('history.stats.net')}</span><span class="value ${netClass}">${netSign}${formatChips(Math.abs(s.totalNet))}</span></div>
+            <div class="stats-row"><span class="label">${t('history.stats.biggest_win')}</span><span class="value">${formatChips(s.biggestWin || 0)}</span></div>
+            <div class="stats-row"><span class="label">${t('history.stats.biggest_pot')}</span><span class="value">${formatChips(s.biggestPot || 0)}</span></div>
+            <div class="stats-row"><span class="label">${t('history.stats.vpip')}</span><span class="value">${vpipPct}%</span></div>
+            <div class="stats-row"><span class="label">${t('history.stats.pfr')}</span><span class="value">${pfrPct}%</span></div>
+            <div class="stats-row"><span class="label">${t('history.stats.sd_win')}</span><span class="value">${sdWinPct}%</span></div>
         `;
 
         const all = this.history.getAll().slice().reverse();
         if (all.length === 0) {
-            tableEl.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:20px">No hands recorded yet. Play a hand to start tracking.</td></tr>';
+            tableEl.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--ink-faint);padding:20px">${t('history.empty')}</td></tr>`;
             return;
         }
+        const resultKey = { win: 'history.result.win', loss: 'history.result.loss',
+                            fold: 'history.result.fold', chop: 'history.result.chop' };
         tableEl.innerHTML = all.map(rec => {
             const net = rec.humanNet || 0;
             const netSign = net > 0 ? '+' : '';
             const netClass = net > 0 ? 'positive' : net < 0 ? 'negative' : '';
-            const result = { win: 'Won', loss: 'Lost', fold: 'Folded', chop: 'Chopped' }[rec.humanResult] || rec.humanResult;
-            const winnerHand = (rec.pots?.[0]?.winners?.[0]?.handName) || '—';
+            const result = resultKey[rec.humanResult] ? t(resultKey[rec.humanResult]) : rec.humanResult;
+            // winnerHand is a poker hand name like "Full House" — translate via rank lookup
+            const winnerHandName = rec.pots?.[0]?.winners?.[0]?.handName;
+            const winnerHand = this._translateHandName(winnerHandName);
 
             const renderCode = (code) => {
                 if (!code) return '';
@@ -384,6 +447,17 @@ class PokerApp {
                 <td>${winnerHand}</td>
             </tr>`;
         }).join('');
+    }
+
+    /** Translate a stored hand-name (e.g. "Full House", "uncontested") to current language. */
+    _translateHandName(name) {
+        if (!name || name === '—') return '—';
+        if (name === 'uncontested') return name;
+        // Find the rank index whose English name matches
+        for (let i = 1; i <= 10; i++) {
+            if (HAND_NAMES[i] === name) return t(`rank.${i}.name`);
+        }
+        return name;  // unknown, return as-is
     }
 
     _loadSettings() {
@@ -467,7 +541,11 @@ class PokerApp {
             tr.moveDealerButton(g.dealerIndex);
             for (const p of g.players) tr.updatePlayer(p);
             setTimeout(() => tr.movePositionLabels(g.smallBlindIndex, g.bigBlindIndex), 50);
-            ml.show(`Hand #${data.handNumber} — Blinds ${formatChips(data.blinds.small)}/${formatChips(data.blinds.big)}`, 4000);
+            ml.show(t('toast.hand_start', {
+                n: data.handNumber,
+                sb: formatChips(data.blinds.small),
+                bb: formatChips(data.blinds.big)
+            }), 4000);
             this._updateGameInfo();
 
             this._currentRec = {
@@ -496,7 +574,10 @@ class PokerApp {
         });
 
         g.on('blindsUp', (data) => {
-            ml.show(`Blinds increase to ${formatChips(data.level.small)}/${formatChips(data.level.big)}!`, 5000);
+            ml.show(t('toast.blinds_up', {
+                sb: formatChips(data.level.small),
+                bb: formatChips(data.level.big)
+            }), 5000);
             audio.play('blinds-up');
             this._updateGameInfo();
         });
@@ -517,13 +598,13 @@ class PokerApp {
         });
 
         g.on('allInRunout', () => {
-            ml.show('All In — running it out!', 3000);
+            ml.show(t('toast.all_in_runout'), 3000);
         });
 
         g.on('dealCommunityCards', (data) => {
             tr.dealCommunityCards(data.cards, data.all);
-            const streetNames = { flop: 'Flop', turn: 'Turn', river: 'River' };
-            ml.show(`Dealing the ${streetNames[data.street] || data.street}`, 2000);
+            const streetKey = { flop: 'toast.dealing_flop', turn: 'toast.dealing_turn', river: 'toast.dealing_river' }[data.street];
+            if (streetKey) ml.show(t(streetKey), 2000);
             audio.play('deal');
             if (this._currentRec) {
                 this._currentRec.community = (data.all || []).map(cardToCode);
@@ -577,7 +658,11 @@ class PokerApp {
         });
 
         g.on('handWonUncontested', (data) => {
-            ml.show(`${this._winVerbName(data.winner)} ${formatChips(data.amount)}!`, 3000);
+            const amount = formatChips(data.amount);
+            const msg = data.winner.isHuman
+                ? t('toast.you_win', { amount })
+                : t('toast.someone_wins', { name: data.winner.name, amount });
+            ml.show(msg, 3000);
             tr.updatePlayer(data.winner);
             tr.showWinner(data.winner.seatIndex);
             audio.play('win');
@@ -615,6 +700,7 @@ class PokerApp {
             audio.play('win');
             this._updateGameInfo();
 
+            this._pendingAwards = data;  // cached for i18n re-render
             this._showShowdownOverlay(this._pendingShowdown, data);
 
             if (this._currentRec) {
@@ -655,9 +741,11 @@ class PokerApp {
             tr.setActivePlayer(null);
 
             const humanWon = data.winner?.isHuman;
-            const winMsg = data.winner
-                ? `Game Over! ${this._winVerbName(data.winner)} the tournament!`
-                : 'Game Over!';
+            const winMsg = !data.winner
+                ? t('toast.game_over_generic')
+                : humanWon
+                    ? t('toast.game_over_human')
+                    : t('toast.game_over_ai', { name: data.winner.name });
             ml.show(winMsg, 0);
 
             if (humanWon) {
@@ -667,7 +755,11 @@ class PokerApp {
             setTimeout(() => {
                 this._showGameOverStats();
                 document.getElementById('start-screen').style.display = '';
-                document.getElementById('start-btn').textContent = 'Play Again';
+                const sb = document.getElementById('start-btn');
+                if (sb) {
+                    sb.dataset.i18n = 'start.play_again';
+                    sb.textContent = t('start.play_again');
+                }
             }, humanWon ? 3500 : 2000);
         });
     }
@@ -710,12 +802,13 @@ class PokerApp {
                 const cardsHTML = (p.holeCards || []).map(microCardHTML).join('');
                 const gender = NAME_GENDER[p.name] || 'male';
 
+                const localizedHandName = this._translateHandName(handName);
                 const resultHTML = isFolded
-                    ? `<span class="award folded-tag">Folded</span>`
+                    ? `<span class="award folded-tag">${t('showdown.folded')}</span>`
                     : isWinner
-                        ? `<span class="hand-name">${handName}</span>
+                        ? `<span class="hand-name">${localizedHandName}</span>
                            <span class="award">+${formatChips(awardsBySeat[p.seatIndex])}</span>`
-                        : `<span class="hand-name">${handName}</span>
+                        : `<span class="hand-name">${localizedHandName}</span>
                            <span class="award" style="color:var(--ink-faint);font-weight:600">—</span>`;
 
                 const avatarBg = avatarBgGradient(p.name, gender);
@@ -724,7 +817,7 @@ class PokerApp {
                         <div class="sd-avatar" style="background:${avatarBg};display:flex;align-items:center;justify-content:center;">
                             <span style="font-family:'DM Serif Display',serif;font-size:13px;color:rgba(255,255,255,0.95)">${avatarInitial(p.name)}</span>
                         </div>
-                        <span class="sd-name">${p.name}${p.isHuman ? ' (You)' : ''}</span>
+                        <span class="sd-name">${p.name}${p.isHuman ? t('showdown.you_label') : ''}</span>
                     </div>
                     <div class="showdown-cards">${cardsHTML || '<span style="color:var(--ink-faint);font-size:11px">—</span>'}</div>
                     <div class="showdown-result">${resultHTML}</div>
@@ -732,12 +825,12 @@ class PokerApp {
             }).join('');
 
         content.innerHTML = `
-            <h2>Showdown</h2>
+            <h2>${t('showdown.title')}</h2>
             <div class="board-strip">${boardHTML}</div>
             ${rows}
             <div id="showdown-continue-wrap">
-                <button id="showdown-continue">Next Hand</button>
-                <span id="showdown-countdown">Auto-continue in 5s</span>
+                <button id="showdown-continue">${t('showdown.next')}</button>
+                <span id="showdown-countdown">${t('showdown.countdown', { s: TIMING.SHOWDOWN_COUNTDOWN_S })}</span>
             </div>
         `;
 
@@ -761,11 +854,11 @@ class PokerApp {
 
         this._showdownCountdownId = setInterval(() => {
             if (this._paused) {
-                if (countdownEl) countdownEl.textContent = 'Paused — click Next Hand when ready';
+                if (countdownEl) countdownEl.textContent = t('showdown.paused');
                 return;
             }
             seconds--;
-            if (countdownEl) countdownEl.textContent = `Auto-continue in ${seconds}s`;
+            if (countdownEl) countdownEl.textContent = t('showdown.countdown', { s: seconds });
             if (seconds <= 0) advance();
         }, 1000);
     }
@@ -817,13 +910,13 @@ class PokerApp {
         });
 
         statsEl.innerHTML = `
-            <h3>Game Summary</h3>
-            <div class="stats-row"><span class="label">Hands Played</span><span class="value">${g.handNumber}</span></div>
-            <div class="stats-row"><span class="label">Final Blinds</span><span class="value">${formatChips(g.blindLevel.small)}/${formatChips(g.blindLevel.big)}</span></div>
-            <div class="stats-row"><span class="label">Your Finish</span><span class="value">#${humanRank} of ${g.players.length}</span></div>
-            <div class="stats-row"><span class="label">Net Result</span><span class="value ${netClass}">${netPrefix}${formatChips(Math.abs(netResult))}</span></div>
+            <h3>${t('gameover.summary')}</h3>
+            <div class="stats-row"><span class="label">${t('gameover.hands_played')}</span><span class="value">${g.handNumber}</span></div>
+            <div class="stats-row"><span class="label">${t('gameover.final_blinds')}</span><span class="value">${formatChips(g.blindLevel.small)}/${formatChips(g.blindLevel.big)}</span></div>
+            <div class="stats-row"><span class="label">${t('gameover.your_finish')}</span><span class="value">${t('gameover.finish_n_of_m', { rank: humanRank, total: g.players.length })}</span></div>
+            <div class="stats-row"><span class="label">${t('gameover.net_result')}</span><span class="value ${netClass}">${netPrefix}${formatChips(Math.abs(netResult))}</span></div>
             <div class="stats-standings">
-                <div class="stats-row"><span class="label" style="font-weight:600;color:var(--ink)">Final Standings</span><span class="value" style="color:var(--ink-dim)">Chips</span></div>
+                <div class="stats-row"><span class="label" style="font-weight:600;color:var(--ink)">${t('gameover.standings')}</span><span class="value" style="color:var(--ink-dim)">${t('gameover.chips')}</span></div>
                 ${standingsHtml}
             </div>
         `;
@@ -831,7 +924,8 @@ class PokerApp {
     }
 
     _winVerbName(player) {
-        return player.isHuman ? 'You win' : `${player.name} wins`;
+        // Legacy helper kept for any internal use; prefer t('toast.you_win'/'toast.someone_wins') directly.
+        return player.isHuman ? t('toast.you_win', { amount: '' }).replace(/[!！]?\s*$/, '') : player.name;
     }
 
     _launchConfetti() {
@@ -874,10 +968,10 @@ class PokerApp {
         const showNext = nextBlinds && handNum >= 1 && handsUntilNext > 0 && handsUntilNext <= interval;
 
         infoEl.innerHTML = `
-            <span class="chip-tag"><span class="label">Hand</span><span class="value">#${handNum}</span></span>
-            <span class="chip-tag blinds"><span class="label">Blinds</span><span class="value">${formatChips(blinds.small)}/${formatChips(blinds.big)}</span></span>
-            ${showNext ? `<span class="chip-tag next-blinds"><span class="label">Next</span><span class="value">${formatChips(nextBlinds.small)}/${formatChips(nextBlinds.big)} · ${handsUntilNext}h</span></span>` : ''}
-            <span class="chip-tag"><span class="label">Players</span><span class="value">${activePlayers}/${total}</span></span>
+            <span class="chip-tag"><span class="label">${t('info.hand')}</span><span class="value">#${handNum}</span></span>
+            <span class="chip-tag blinds"><span class="label">${t('info.blinds')}</span><span class="value">${formatChips(blinds.small)}/${formatChips(blinds.big)}</span></span>
+            ${showNext ? `<span class="chip-tag next-blinds"><span class="label">${t('info.next_blinds')}</span><span class="value">${formatChips(nextBlinds.small)}/${formatChips(nextBlinds.big)} · ${t('info.next_in', { n: handsUntilNext })}</span></span>` : ''}
+            <span class="chip-tag"><span class="label">${t('info.players')}</span><span class="value">${activePlayers}/${total}</span></span>
         `;
     }
 }

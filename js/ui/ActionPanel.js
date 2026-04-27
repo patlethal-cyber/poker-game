@@ -1,5 +1,6 @@
 import { ACTIONS } from '../utils/constants.js';
 import { formatChips } from '../utils/helpers.js';
+import { t } from '../i18n.js';
 
 export class ActionPanel {
     constructor(game) {
@@ -172,9 +173,9 @@ export class ActionPanel {
         const allInAction = validActions.find(a => a.type === ACTIONS.ALL_IN);
 
         if (hasCheck) {
-            this.btnCheckCall.textContent = 'Check';
+            this.btnCheckCall.textContent = t('action.check');
         } else if (callAction) {
-            this.btnCheckCall.textContent = `Call ${formatChips(callAction.amount)}`;
+            this.btnCheckCall.textContent = t('action.call_amount', { amount: formatChips(callAction.amount) });
         }
 
         if (raiseAction) {
@@ -189,14 +190,14 @@ export class ActionPanel {
             this.raiseInput.min = minTo;
             this.raiseInput.max = maxTo;
             this.raiseInput.value = minTo;
-            this.btnRaise.textContent = raiseAction.type === ACTIONS.BET ? 'Bet' : 'Raise to';
+            this.btnRaise.textContent = raiseAction.type === ACTIONS.BET ? t('action.bet') : t('action.raise_to');
         } else {
             this.raiseControls.style.display = 'none';
             this.btnRaise.style.display = 'none';
         }
 
         if (allInAction) {
-            this.btnAllIn.textContent = `All In ${formatChips(allInAction.amount)}`;
+            this.btnAllIn.textContent = t('action.all_in_amount', { amount: formatChips(allInAction.amount) });
             this.btnAllIn.style.display = '';
         } else {
             this.btnAllIn.style.display = 'none';
