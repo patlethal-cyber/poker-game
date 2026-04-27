@@ -3,6 +3,7 @@ import {
     formatChips, createChipStackHTML, createSeatChipStack,
     avatarBgGradient, avatarInitial, NAME_GENDER
 } from '../utils/helpers.js';
+import { t } from '../i18n.js';
 
 export class TableRenderer {
     constructor(tableArea) {
@@ -211,16 +212,26 @@ export class TableRenderer {
         const actionEl = document.getElementById(`action-${seat}`);
         if (!actionEl) return;
 
-        let text = action.type;
+        let text;
         let className = action.type;
 
-        if (action.type === 'call' && action.amount) {
-            text = `Call ${formatChips(action.amount)}`;
-        } else if (action.type === 'raise' || action.type === 'bet') {
-            text = `${action.type} ${formatChips(action.amount)}`;
+        if (action.type === 'fold') {
+            text = t('action.fold');
+        } else if (action.type === 'check') {
+            text = t('action.check');
+        } else if (action.type === 'call' && action.amount) {
+            text = t('action.call_amount', { amount: formatChips(action.amount) });
+        } else if (action.type === 'call') {
+            text = t('action.call');
+        } else if (action.type === 'bet') {
+            text = `${t('action.bet')} ${formatChips(action.amount)}`;
+        } else if (action.type === 'raise') {
+            text = `${t('action.raise_to')} ${formatChips(action.amount)}`;
         } else if (action.type === 'allIn') {
-            text = 'ALL IN';
+            text = t('action.all_in').toUpperCase();
             className = 'all-in';
+        } else {
+            text = action.type;
         }
 
         actionEl.textContent = text;
