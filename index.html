@@ -1975,6 +1975,313 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
     max-width: 360px;
     line-height: 1.6;
 }
+
+/* ============================================================
+   MOBILE PORTRAIT LAYOUT
+   Activated when JS detects touch device + min-side < 850 + portrait
+   orientation (sets body.mobile-portrait). Replaces the felt-oval
+   layout with a vertical column: opponents at top → board+pot in
+   the middle → human + cards → action panel docked at bottom.
+   ============================================================ */
+
+body.mobile-portrait {
+    overscroll-behavior: none;  /* prevent pull-to-refresh on iOS */
+}
+
+body.mobile-portrait #game-container {
+    flex-direction: column;
+    justify-content: flex-start;
+    padding-top: max(6px, env(safe-area-inset-top));
+    padding-bottom: 0;
+    gap: 0;
+}
+
+/* --- Top bar --- */
+body.mobile-portrait #top-bar {
+    position: sticky;
+    background: linear-gradient(180deg, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 100%);
+    padding: 8px 10px;
+}
+body.mobile-portrait #message-text { display: none; }  /* moved to toast in Phase 3B; for now suppress */
+body.mobile-portrait #game-info { gap: 4px; font-size: 10px; }
+body.mobile-portrait #game-info .chip-tag { padding: 3px 7px; gap: 3px; }
+body.mobile-portrait #game-info .chip-tag .label { display: none; }
+body.mobile-portrait #game-info .chip-tag.next-blinds { display: none; }
+body.mobile-portrait .icon-btn { width: 34px; height: 34px; font-size: 14px; }
+body.mobile-portrait #stats-hint { display: none; }  /* not enough room; rely on the news dot */
+
+/* --- Table area: vertical flex column with three "rows" via order --- */
+body.mobile-portrait #table-area {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    justify-content: center;
+    width: 100%;
+    max-width: 100vw;
+    aspect-ratio: auto;
+    max-height: none;
+    padding: 8px;
+    gap: 6px;
+    transform: none !important;
+    transition: none;
+    flex: 1 1 auto;
+}
+
+/* The felt oval becomes a horizontal "board strip" containing community + pot.
+   flex-basis: 100% forces it onto its own row between opponents and human.    */
+body.mobile-portrait #poker-table {
+    position: static;
+    inset: auto;
+    width: 100%;
+    flex-basis: 100%;
+    border-radius: 14px;
+    background:
+        radial-gradient(ellipse 80% 60% at 50% 50%, var(--felt-top) 0%, var(--felt-mid) 70%, var(--felt-edge) 100%);
+    box-shadow:
+        inset 0 0 30px rgba(0,0,0,0.35),
+        inset 0 0 4px rgba(255,255,255,0.06),
+        0 0 0 3px var(--rail-inner),
+        0 0 0 5px var(--rail-gold),
+        0 6px 20px rgba(0,0,0,0.55);
+    padding: 10px 8px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    order: 2;
+    min-height: 130px;
+}
+body.mobile-portrait #poker-table::before,
+body.mobile-portrait #poker-table::after {
+    display: none;  /* drop the noise + ring decorations — not needed at this size */
+}
+
+/* Community cards row + pot, both static & centered */
+body.mobile-portrait #community-cards {
+    position: static;
+    transform: none;
+    gap: 4px;
+    z-index: auto;
+}
+body.mobile-portrait .community-card-slot {
+    width: calc(34px * 1.0);
+    height: calc(48px * 1.0);
+    border: none;
+    background: rgba(0,0,0,0.18);
+    border-radius: 5px;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
+}
+body.mobile-portrait #community-cards .card {
+    width: 34px;
+    height: 48px;
+    border-radius: 5px;
+}
+body.mobile-portrait #pot-display {
+    position: static;
+    transform: none;
+}
+body.mobile-portrait #pot-amount {
+    font-size: 22px;
+    text-shadow: 0 0 12px rgba(225,185,89,0.35), 0 2px 6px rgba(0,0,0,0.6);
+}
+body.mobile-portrait #pot-label { font-size: 9px; margin-top: 2px; }
+body.mobile-portrait #pot-chips { display: none; }  /* declutter — pot amount is enough */
+
+/* Opponents row — flex-wrapped, smaller seats with avatar + chips only.
+   `position: relative` keeps `.player-cards` (absolute, bottom: 100%) anchored
+   to its own seat instead of escaping all the way up to the body.
+   Seat width 65px so a 5-opponent table (6 players) fits all five in one row
+   on iPhone SE (375 - 16px padding = 359px → 5 × 65 + 4 × 6 = 349px). */
+body.mobile-portrait .player-seat:not(.human) {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+    order: 1;
+    width: auto;
+    --seat-w: 65px;
+    flex: 0 0 auto;
+    z-index: auto;
+    margin-top: 32px;  /* room for the floating hole cards above */
+}
+body.mobile-portrait .player-seat:not(.human) .player-info {
+    width: 65px;
+    padding: 3px 5px 3px 3px;
+    gap: 3px;
+    border-radius: 999px;
+}
+body.mobile-portrait .player-seat:not(.human) .player-avatar {
+    width: 22px;
+    height: 22px;
+    border-width: 1.5px;
+}
+body.mobile-portrait .player-seat:not(.human) .player-avatar .avatar-initial {
+    font-size: 10px;
+}
+body.mobile-portrait .player-seat:not(.human) .player-name { display: none; }
+body.mobile-portrait .player-seat:not(.human) .player-chips {
+    font-size: 10px;
+}
+body.mobile-portrait .player-seat:not(.human) .seat-chip-icon {
+    width: 9px; height: 9px;
+}
+body.mobile-portrait .player-seat:not(.human) .seat-chip-stack {
+    display: none;  /* declutter — show only the numeric chip count */
+}
+body.mobile-portrait .player-seat:not(.human) .thinking-indicator {
+    /* keep visible but reposition since seat is smaller */
+}
+body.mobile-portrait .player-seat:not(.human) .player-cards {
+    bottom: calc(100% + 2px);
+    gap: 2px;
+}
+body.mobile-portrait .player-seat:not(.human) .player-cards .card.small {
+    width: 22px;
+    height: 30px;
+}
+body.mobile-portrait .player-seat:not(.human) .player-cards .card.small .card-rank {
+    font-size: 11px;
+}
+body.mobile-portrait .player-seat:not(.human) .player-cards .card.small .card-suit {
+    font-size: 8px;
+    margin-top: 0;
+}
+/* Action label appears below the seat — give it room */
+body.mobile-portrait .player-seat:not(.human) .player-action-label {
+    font-size: 9px;
+    letter-spacing: 0.5px;
+    min-height: 11px;
+    position: absolute;
+    bottom: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+}
+
+/* Human seat — bottom row, larger.  `position: relative` is required so the
+   absolutely-positioned hole cards float just above the seat pill, not the body. */
+body.mobile-portrait .player-seat.human {
+    position: relative !important;
+    left: auto !important;
+    top: auto !important;
+    transform: none !important;
+    order: 3;
+    flex-basis: 100%;
+    width: 100%;
+    align-self: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 80px;   /* room for the hovering large hole cards above */
+}
+body.mobile-portrait .player-seat.human .player-info {
+    width: auto;
+    min-width: 200px;
+    max-width: 280px;
+    padding: 6px 14px 6px 6px;
+}
+body.mobile-portrait .player-seat.human .player-cards {
+    bottom: calc(100% + 4px);
+}
+body.mobile-portrait .player-seat.human .player-cards .card.small {
+    width: 52px;
+    height: 72px;
+}
+body.mobile-portrait .player-seat.human .player-cards .card.small .card-rank {
+    font-size: 26px;
+}
+body.mobile-portrait .player-seat.human .player-cards .card.small .card-suit {
+    font-size: 18px;
+}
+
+/* Hide chrome that doesn't fit / isn't needed in portrait */
+body.mobile-portrait .player-bet,
+body.mobile-portrait .dealer-button,
+body.mobile-portrait .position-label {
+    display: none !important;
+}
+
+/* --- Action panel: docked at bottom, full-width sheet --- */
+body.mobile-portrait #action-panel {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    transform: translateY(100%);
+    max-width: 100vw;
+    width: 100%;
+    border-radius: 14px 14px 0 0;
+    padding: 10px 10px max(10px, env(safe-area-inset-bottom)) 10px;
+    z-index: 200;
+    background: linear-gradient(180deg, rgba(22, 24, 34, 0.98) 0%, rgba(12, 14, 20, 1) 100%);
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.6);
+}
+body.mobile-portrait #action-panel.visible {
+    transform: translateY(0);
+}
+body.mobile-portrait .action-row { gap: 6px; }
+body.mobile-portrait .action-btn {
+    flex: 1;
+    min-width: 0;
+    min-height: 50px;
+    font-size: 13px;
+    padding: 8px 6px;
+}
+body.mobile-portrait .action-row-raise {
+    flex-wrap: wrap;
+    gap: 6px;
+}
+body.mobile-portrait #raise-slider {
+    flex: 1 1 100%;
+    max-width: none;
+}
+body.mobile-portrait .raise-input-wrap {
+    flex: 1 1 100px;
+}
+body.mobile-portrait .quick-bets {
+    flex: 1 1 100%;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);  /* 4 quick bets; All-In is also primary action so it's also here */
+    gap: 5px;
+}
+body.mobile-portrait .quick-bet {
+    min-height: 32px;
+    font-size: 11px;
+    padding: 4px 6px;
+}
+
+/* When action panel is open, raise the table area's effective bottom so nothing hides under it */
+body.mobile-portrait #game-container[data-panel-open="1"] {
+    padding-bottom: var(--action-panel-height, 200px);
+}
+body.mobile-portrait #game-container[data-panel-open="1"] #table-area {
+    transform: none !important;  /* override the desktop translateY */
+}
+
+/* Showdown overlay — adapt sizing for portrait */
+body.mobile-portrait #showdown-content {
+    min-width: 0;
+    width: 92vw;
+    max-height: 80vh;
+    padding: 14px 14px 18px;
+}
+body.mobile-portrait .showdown-row {
+    grid-template-columns: auto 1fr auto;
+    gap: 8px;
+    padding: 6px 8px;
+}
+
+/* Hide the `card-back::after` weave on tiny opponent face-down cards */
+body.mobile-portrait .player-seat:not(.human) .card-back::after {
+    inset: 3px;
+}
+
+/* Pause overlay ok by default; tighten icon a bit */
+body.mobile-portrait #pause-overlay .pause-icon { font-size: 56px; }
+body.mobile-portrait #pause-overlay h2 { font-size: 24px; }
     </style>
 </head>
 <body>
