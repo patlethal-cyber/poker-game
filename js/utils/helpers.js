@@ -193,8 +193,11 @@ export function avatarUrl(name, gender) {
     return '';
 }
 
-export function avatarInitial(name) {
-    return (name || '?').trim().slice(0, 1).toUpperCase();
+const AVATAR_SUITS = ['♠', '♥', '♦', '♣'];  // ♠ ♥ ♦ ♣
+export function avatarSuit(name) {
+    let h = 0;
+    for (let i = 0; i < (name || '').length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+    return AVATAR_SUITS[h % AVATAR_SUITS.length];
 }
 
 export class EventEmitter {

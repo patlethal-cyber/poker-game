@@ -7,8 +7,8 @@ import { Toast } from './ui/Toast.js';
 import { AudioManager } from './ui/AudioManager.js';
 import { HistoryStore } from './storage/HistoryStore.js';
 import {
-    formatChips, shuffle,
-    NAME_POOL_MALE, NAME_POOL_FEMALE, NAME_GENDER, avatarInitial,
+    formatChips, shuffle, delay,
+    NAME_POOL_MALE, NAME_POOL_FEMALE, NAME_GENDER, avatarSuit,
     avatarBgGradient
 } from './utils/helpers.js';
 import { BLIND_SCHEDULE, DEFAULT_CONFIG, HAND_NAMES, TIMING } from './utils/constants.js';
@@ -31,9 +31,14 @@ function miniCardHTML(c) {
 }
 
 function microCardHTML(c) {
+    return showdownCardHTML(c, false);
+}
+
+function showdownCardHTML(c, isHero = false) {
     const red = c.suit === 'hearts' || c.suit === 'diamonds';
     const colorClass = red ? 'red' : 'black';
-    return `<div class="card micro ${colorClass}">
+    const sizeClass = isHero ? 'hero-card' : 'micro';
+    return `<div class="card ${sizeClass} ${colorClass}">
         <div class="card-inner"><div class="card-front">
             <div class="card-center">
                 <span class="micro-rank">${c.rank}</span>
@@ -700,12 +705,18 @@ class PokerApp {
             }
         });
 
-        g.on('showdown', (data) => {
-            for (const e of data.evaluations) {
-                tr.revealPlayerCards(e.player);
-            }
+        g.on('showdown', async (data) => {
             this._pendingShowdown = data;
-            // Delay actual overlay until potsAwarded so we can show winners + awards
+            // Stagger reveal so the winner flips last for narrative tension
+            const ordered = [...data.evaluations]
+                .sort((a, b) => (a.eval?.score || 0) - (b.eval?.score || 0));
+            for (let i = 0; i < ordered.length; i++) {
+                tr.revealPlayerCards(ordered[i].player);
+                if (i < ordered.length - 1) {
+                    audio.play('deal');
+                    await delay(200);
+                }
+            }
         });
 
         g.on('potsAwarded', (data) => {
@@ -796,72 +807,109 @@ class PokerApp {
         const evals = showdownData.evaluations;
         const community = showdownData.communityCards || [];
 
-        // Build award lookup by seat
         const awardsBySeat = {};
         for (const award of awardsData.awards) {
             awardsBySeat[award.playerIndex] = (awardsBySeat[award.playerIndex] || 0) + award.amount;
         }
-
-        const boardHTML = community.map(microCardHTML).join('');
-
-        // Include folded players so audit is clear, but mute them
-        const allPlayersInHand = this.game.players.filter(p => !p.isSittingOut);
         const evalBySeat = {};
         for (const e of evals) evalBySeat[e.playerIndex] = e;
 
-        const rows = allPlayersInHand
-            .sort((a, b) => {
-                const awardA = awardsBySeat[a.seatIndex] || 0;
-                const awardB = awardsBySeat[b.seatIndex] || 0;
-                if (awardA !== awardB) return awardB - awardA;
-                return (evalBySeat[b.seatIndex]?.eval?.score || 0) - (evalBySeat[a.seatIndex]?.eval?.score || 0);
-            })
-            .map(p => {
-                const isWinner = (awardsBySeat[p.seatIndex] || 0) > 0;
-                const isFolded = p.isFolded;
-                const evalInfo = evalBySeat[p.seatIndex];
-                const handName = evalInfo?.eval?.name || '';
-                const cardsHTML = (p.holeCards || []).map(microCardHTML).join('');
-                const gender = NAME_GENDER[p.name] || 'male';
+        const allPlayersInHand = this.game.players.filter(p => !p.isSittingOut);
+        const sorted = [...allPlayersInHand].sort((a, b) => {
+            const awardA = awardsBySeat[a.seatIndex] || 0;
+            const awardB = awardsBySeat[b.seatIndex] || 0;
+            if (awardA !== awardB) return awardB - awardA;
+            return (evalBySeat[b.seatIndex]?.eval?.score || 0) - (evalBySeat[a.seatIndex]?.eval?.score || 0);
+        });
 
-                const localizedHandName = this._translateHandName(handName);
-                const resultHTML = isFolded
-                    ? `<span class="award folded-tag">${t('showdown.folded')}</span>`
-                    : isWinner
-                        ? `<span class="hand-name">${localizedHandName}</span>
-                           <span class="award">+${formatChips(awardsBySeat[p.seatIndex])}</span>`
-                        : `<span class="hand-name">${localizedHandName}</span>
-                           <span class="award" style="color:var(--ink-faint);font-weight:600">—</span>`;
+        // Hero priority: human if they won, else top winner
+        const human = sorted.find(p => p.isHuman);
+        const humanAward = awardsBySeat[human?.seatIndex] || 0;
+        const humanWon = humanAward > 0;
+        const heroPlayer = humanWon ? human : sorted[0];
+        const restPlayers = sorted.filter(p => p !== heroPlayer);
 
-                const avatarBg = avatarBgGradient(p.name, gender);
-                return `<div class="showdown-row${isWinner ? ' winner' : ''}${isFolded ? ' folded' : ''}">
-                    <div class="showdown-player">
-                        <div class="sd-avatar" style="background:${avatarBg};display:flex;align-items:center;justify-content:center;">
-                            <span style="font-family:'DM Serif Display',serif;font-size:13px;color:rgba(255,255,255,0.95)">${avatarInitial(p.name)}</span>
-                        </div>
-                        <span class="sd-name">${p.name}${p.isHuman ? t('showdown.you_label') : ''}</span>
+        const renderHero = (p) => {
+            const award = awardsBySeat[p.seatIndex] || 0;
+            const isWinner = award > 0;
+            const isFolded = p.isFolded;
+            const evalInfo = evalBySeat[p.seatIndex];
+            const handName = this._translateHandName(evalInfo?.eval?.name || '');
+            const cardsHTML = (p.holeCards || []).map(c => showdownCardHTML(c, true)).join('');
+            const gender = NAME_GENDER[p.name] || 'male';
+            const avatarBg = avatarBgGradient(p.name, gender);
+
+            const resultHTML = isFolded
+                ? `<span class="hero-folded">${t('showdown.folded')}</span>`
+                : isWinner
+                    ? `<span class="hero-award-amount">+${formatChips(award)}</span>`
+                    : `<span class="hero-noaward">—</span>`;
+
+            return `<div class="showdown-hero${isWinner ? ' winner' : ''}${isFolded ? ' folded' : ''}">
+                <div class="hero-top">
+                    <div class="hero-avatar" style="background:${avatarBg}">
+                        <span class="avatar-suit">${avatarSuit(p.name)}</span>
                     </div>
-                    <div class="showdown-cards">${cardsHTML || '<span style="color:var(--ink-faint);font-size:11px">—</span>'}</div>
-                    <div class="showdown-result">${resultHTML}</div>
-                </div>`;
-            }).join('');
+                    <div class="hero-info">
+                        <div class="hero-name">${p.name}${p.isHuman ? t('showdown.you_label') : ''}</div>
+                        <div class="hero-hand-name">${handName || '—'}</div>
+                    </div>
+                    <div class="hero-result">${resultHTML}</div>
+                </div>
+                <div class="hero-cards">${cardsHTML || ''}</div>
+            </div>`;
+        };
+
+        const renderRow = (p) => {
+            const award = awardsBySeat[p.seatIndex] || 0;
+            const isWinner = award > 0;
+            const isFolded = p.isFolded;
+            const evalInfo = evalBySeat[p.seatIndex];
+            const handName = this._translateHandName(evalInfo?.eval?.name || '');
+            const cardsHTML = (p.holeCards || []).map(microCardHTML).join('');
+            const gender = NAME_GENDER[p.name] || 'male';
+            const avatarBg = avatarBgGradient(p.name, gender);
+
+            const resultHTML = isFolded
+                ? `<span class="award folded-tag">${t('showdown.folded')}</span>`
+                : isWinner
+                    ? `<span class="hand-name">${handName}</span>
+                       <span class="award">+${formatChips(award)}</span>`
+                    : `<span class="hand-name">${handName}</span>
+                       <span class="award" style="color:var(--ink-faint);font-weight:600">—</span>`;
+
+            return `<div class="showdown-row${isWinner ? ' winner' : ''}${isFolded ? ' folded' : ''}">
+                <div class="showdown-player">
+                    <div class="sd-avatar" style="background:${avatarBg}">
+                        <span class="avatar-suit" style="font-size:13px">${avatarSuit(p.name)}</span>
+                    </div>
+                    <span class="sd-name">${p.name}${p.isHuman ? t('showdown.you_label') : ''}</span>
+                </div>
+                <div class="showdown-cards">${cardsHTML || '<span style="color:var(--ink-faint);font-size:11px">—</span>'}</div>
+                <div class="showdown-result">${resultHTML}</div>
+            </div>`;
+        };
+
+        // Dynamic countdown: 5s if human won (winners read fast), 8s on loss/fold
+        const countdownSecs = humanWon ? TIMING.SHOWDOWN_COUNTDOWN_S : (TIMING.SHOWDOWN_COUNTDOWN_S + 3);
 
         content.innerHTML = `
             <h2>${t('showdown.title')}</h2>
-            <div class="board-strip">${boardHTML}</div>
-            ${rows}
+            <div class="board-strip">${community.map(microCardHTML).join('')}</div>
+            ${renderHero(heroPlayer)}
+            ${restPlayers.length ? `<div class="showdown-rest">${restPlayers.map(renderRow).join('')}</div>` : ''}
             <div id="showdown-continue-wrap">
                 <button id="showdown-continue">${t('showdown.next')}</button>
-                <span id="showdown-countdown">${t('showdown.countdown', { s: TIMING.SHOWDOWN_COUNTDOWN_S })}</span>
             </div>
+            <div class="showdown-progress"><div class="bar" style="animation-duration:${countdownSecs}s"></div></div>
         `;
 
         overlay.classList.add('visible');
 
-        // Pause on showdown — user must click continue OR wait for countdown
-        const countdownEl = document.getElementById('showdown-countdown');
         const continueBtn = document.getElementById('showdown-continue');
-        let seconds = TIMING.SHOWDOWN_COUNTDOWN_S;
+        const progress = content.querySelector('.showdown-progress');
+
+        let seconds = countdownSecs;
 
         const advance = () => {
             if (this._showdownCountdownId) {
@@ -876,11 +924,11 @@ class PokerApp {
 
         this._showdownCountdownId = setInterval(() => {
             if (this._paused) {
-                if (countdownEl) countdownEl.textContent = t('showdown.paused');
+                progress?.classList.add('paused');
                 return;
             }
+            progress?.classList.remove('paused');
             seconds--;
-            if (countdownEl) countdownEl.textContent = t('showdown.countdown', { s: seconds });
             if (seconds <= 0) advance();
         }, 1000);
     }
@@ -989,11 +1037,18 @@ class PokerApp {
         const handsUntilNext = interval - ((handNum - 1) % interval);
         const showNext = nextBlinds && handNum >= 1 && handsUntilNext > 0 && handsUntilNext <= interval;
 
+        const blindsTxt = `${formatChips(blinds.small)}/${formatChips(blinds.big)}`;
+        const nextHint = showNext
+            ? `<span class="info-next" title="${t('info.next_blinds')} ${formatChips(nextBlinds.small)}/${formatChips(nextBlinds.big)} · ${t('info.next_in', { n: handsUntilNext })}">↑${handsUntilNext}</span>`
+            : '';
         infoEl.innerHTML = `
-            <span class="chip-tag"><span class="label">${t('info.hand')}</span><span class="value">#${handNum}</span></span>
-            <span class="chip-tag blinds"><span class="label">${t('info.blinds')}</span><span class="value">${formatChips(blinds.small)}/${formatChips(blinds.big)}</span></span>
-            ${showNext ? `<span class="chip-tag next-blinds"><span class="label">${t('info.next_blinds')}</span><span class="value">${formatChips(nextBlinds.small)}/${formatChips(nextBlinds.big)} · ${t('info.next_in', { n: handsUntilNext })}</span></span>` : ''}
-            <span class="chip-tag"><span class="label">${t('info.players')}</span><span class="value">${activePlayers}/${total}</span></span>
+            <div class="info-pill">
+                <span class="info-segment seg-hand">#${handNum}</span>
+                <span class="info-sep">·</span>
+                <span class="info-segment seg-blinds">${blindsTxt}${nextHint}</span>
+                <span class="info-sep">·</span>
+                <span class="info-segment seg-players">${activePlayers}/${total}</span>
+            </div>
         `;
     }
 }

@@ -1,7 +1,7 @@
 import { CardRenderer } from './CardRenderer.js';
 import {
     formatChips, createChipStackHTML, createSeatChipStack,
-    avatarBgGradient, avatarInitial, NAME_GENDER
+    avatarBgGradient, avatarSuit, NAME_GENDER
 } from '../utils/helpers.js';
 import { t } from '../i18n.js';
 
@@ -88,8 +88,18 @@ export class TableRenderer {
         const total = this.totalSeats;
         const w = window.innerWidth;
         const h = window.innerHeight;
+        const portrait = h > w && Math.min(w, h) < 850;
         const veryTight = w < 720 || h < 400;
         const narrow = w < 900 || h < 500;
+        if (portrait) {
+            // Mobile portrait: tighter oval so seats sit on the felt edge with
+            // floating hole-cards still visible above. rx slightly > ry because
+            // the felt is taller-than-wide (aspect-ratio 5/6 in portrait CSS).
+            if (total >= 9)  return [44, 40];
+            if (total >= 7)  return [42, 39];
+            if (total >= 5)  return [40, 38];
+            return [38, 36];
+        }
         if (veryTight) {
             // Phone landscape: pull seats inward so cards + labels don't clip.
             return total >= 8 ? [36, 41] : [35, 40];
@@ -155,7 +165,7 @@ export class TableRenderer {
             <div class="player-info">
                 <div class="seat-left">
                     <div class="player-avatar" style="background:${avatarBg}">
-                        <span class="avatar-initial">${avatarInitial(player.name)}</span>
+                        <span class="avatar-suit">${avatarSuit(player.name)}</span>
                     </div>
                     <div class="player-name">${player.name}</div>
                 </div>
@@ -349,9 +359,18 @@ export class TableRenderer {
     updatePot(amount, descriptions) {
         this.potAmountEl.textContent = formatChips(amount);
         if (descriptions && descriptions.length > 1) {
-            this.potLabelEl.textContent = descriptions.map(d => `${d.name}: ${formatChips(d.amount)}`).join(' | ');
+            // Multi-pot: vertical breakdown (Main / Side 1 / Side 2…)
+            this.potLabelEl.innerHTML = descriptions.map(d =>
+                `<div class="pot-breakdown-row">${d.name}: <span class="pot-side-amount">${formatChips(d.amount)}</span></div>`
+            ).join('');
+            this.potLabelEl.classList.add('pot-breakdown');
+            this.potLabelEl.style.textTransform = 'none';
+            this.potLabelEl.style.letterSpacing = '';
         } else {
             this.potLabelEl.textContent = 'POT';
+            this.potLabelEl.classList.remove('pot-breakdown');
+            this.potLabelEl.style.textTransform = '';
+            this.potLabelEl.style.letterSpacing = '';
         }
 
         const potChipsEl = document.getElementById('pot-chips');

@@ -167,7 +167,6 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
 
 #game-info {
     display: flex;
-    gap: 8px;
     align-items: center;
     font-size: 12px;
     color: var(--ink-dim);
@@ -176,33 +175,41 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
     max-width: 100%;
 }
 
-#game-info .chip-tag {
-    background: rgba(0,0,0,0.4);
-    border: 1px solid var(--border-soft);
-    padding: 5px 11px;
-    border-radius: 999px;
-    white-space: nowrap;
+.info-pill {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.42);
+    border: 1px solid var(--border-soft);
+    padding: 5px 12px;
+    border-radius: 999px;
+    white-space: nowrap;
+    line-height: 1;
 }
 
-#game-info .chip-tag .label {
-    color: var(--ink-faint);
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.6px;
-    font-weight: 600;
-}
-
-#game-info .chip-tag .value {
-    color: var(--ink);
+.info-pill .info-segment {
+    color: var(--ink-dim);
     font-weight: 700;
     font-size: 12px;
+    letter-spacing: 0.2px;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
 }
 
-#game-info .chip-tag.blinds .value { color: var(--gold); }
-#game-info .chip-tag.next-blinds .value { color: var(--ink-dim); font-size: 11px; }
+.info-pill .info-segment.seg-blinds { color: var(--gold); }
+.info-pill .info-next {
+    color: var(--ink-dim);
+    font-weight: 600;
+    font-size: 10px;
+    margin-left: 1px;
+}
+
+.info-pill .info-sep {
+    color: var(--ink-faint);
+    font-size: 10px;
+    opacity: 0.6;
+}
 
 #top-right-controls {
     display: flex;
@@ -324,14 +331,13 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
 @media (max-width: 499px) {
     #top-bar { padding: 8px 10px; }
     #message-text { font-size: 11px; max-width: 40vw; }
-    #game-info { gap: 5px; font-size: 10px; }
-    #game-info .chip-tag { padding: 3px 7px; gap: 4px; }
-    #game-info .chip-tag .label { display: none; }
-    #game-info .chip-tag.next-blinds { display: none; }
+    #game-info { font-size: 10px; }
+    .info-pill { padding: 3px 9px; gap: 5px; }
+    .info-pill .info-segment { font-size: 11px; }
     .icon-btn { width: 34px; height: 34px; font-size: 15px; }
 }
 @media (max-width: 359px) {
-    #game-info .chip-tag:nth-child(1) { display: none; }
+    .info-pill .seg-hand, .info-pill .seg-hand + .info-sep { display: none; }
 }
 
 /* ============================================================
@@ -455,10 +461,10 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
 
 #pot-amount {
     font-family: 'DM Serif Display', Georgia, serif;
-    font-size: calc(26px * var(--scale));
+    font-size: calc(34px * var(--scale));
     font-weight: 400;
     color: var(--gold);
-    text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    text-shadow: 0 0 16px rgba(225,185,89,0.4), 0 2px 6px rgba(0,0,0,0.65);
     letter-spacing: 0.5px;
     line-height: 1;
 }
@@ -471,6 +477,22 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
     margin-top: 4px;
     font-weight: 600;
 }
+
+/* Multi-pot breakdown: when there's a side pot, list them vertically under the total. */
+.pot-breakdown {
+    margin-top: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.pot-breakdown-row {
+    font-size: calc(10px * var(--scale));
+    color: var(--ink-faint);
+    letter-spacing: 0.4px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+.pot-breakdown-row .pot-side-amount { color: var(--gold); }
 
 /* ============================================================
    PLAYER SEATS
@@ -603,9 +625,10 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
     position: relative;
 }
 .player-seat.human .player-avatar { border-color: rgba(225, 185, 89, 0.6); }
-.player-avatar .avatar-initial {
+.player-avatar .avatar-suit,
+.avatar-suit {
     font-family: 'DM Serif Display', Georgia, serif;
-    font-size: calc(17px * var(--scale));
+    font-size: calc(18px * var(--scale));
     font-weight: 400;
     color: rgba(255,255,255,0.98);
     text-shadow: 0 1px 2px rgba(0,0,0,0.35);
@@ -1210,9 +1233,9 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
     .quick-bet { min-height: 26px; font-size: 10px; padding: 0 6px; }
     #raise-slider { height: 18px; }
     #raise-input { height: 26px; font-size: 12px; }
-    /* Hide the "Next $/$ - Nh" pill on very short screens — blind info still
-       visible via the main blinds pill, the next-level detail is too much. */
-    #game-info .chip-tag.next-blinds { display: none; }
+    /* Hide the "↑n" next-blind hint on very short screens — blind info still
+       visible via the main blinds segment, the next-level detail is too much. */
+    .info-pill .info-next { display: none; }
 }
 
 /* Smallest supported: iPhone SE-ish landscape (667x375 or 568x320 if old). */
@@ -1319,6 +1342,154 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
 }
 .showdown-row.folded { opacity: 0.55; }
 
+/* Hero block: featured winner (or human if they lost) — bigger avatar/cards/award */
+.showdown-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 14px 14px;
+    border-radius: 14px;
+    margin: 6px 0 14px;
+    background: linear-gradient(180deg, rgba(225, 185, 89, 0.08) 0%, rgba(225, 185, 89, 0.02) 100%);
+    border: 1px solid rgba(225, 185, 89, 0.22);
+}
+.showdown-hero.winner {
+    background: linear-gradient(180deg, rgba(57, 192, 107, 0.16) 0%, rgba(57, 192, 107, 0.04) 100%);
+    border-color: rgba(57, 192, 107, 0.38);
+    box-shadow: 0 0 28px rgba(57, 192, 107, 0.18);
+}
+.showdown-hero.folded { opacity: 0.7; }
+.showdown-hero .hero-top {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+}
+.showdown-hero .hero-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.18);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 -3px 4px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+.showdown-hero.winner .hero-avatar { border-color: var(--success); }
+.showdown-hero .hero-avatar .avatar-suit {
+    font-size: 26px;
+    font-family: 'DM Serif Display', Georgia, serif;
+    color: rgba(255, 255, 255, 0.98);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    line-height: 1;
+}
+.showdown-hero .hero-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.showdown-hero .hero-name {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink);
+    line-height: 1.1;
+}
+.showdown-hero .hero-hand-name {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--gold-light);
+    letter-spacing: 0.3px;
+    line-height: 1.2;
+}
+.showdown-hero .hero-result { text-align: right; }
+.showdown-hero .hero-award-amount {
+    font-family: 'DM Serif Display', Georgia, serif;
+    font-size: 24px;
+    font-weight: 400;
+    color: var(--success);
+    text-shadow: 0 0 12px rgba(57, 192, 107, 0.35);
+    letter-spacing: 0.3px;
+    font-variant-numeric: tabular-nums;
+}
+.showdown-hero .hero-noaward { color: var(--ink-faint); font-size: 18px; }
+.showdown-hero .hero-folded {
+    color: var(--ink-faint);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    font-weight: 600;
+}
+.showdown-hero .hero-cards {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+}
+
+/* Hero hole cards — between micro and small. Reuses .card.* base from CardRenderer. */
+.card.hero-card {
+    width: 56px;
+    height: 78px;
+    border-radius: 7px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+}
+.card.hero-card .card-front { padding: 4px; }
+.card.hero-card .card-corner { display: none; }
+.card.hero-card .card-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+}
+.card.hero-card .card-center .micro-rank {
+    font-family: 'DM Serif Display', serif;
+    font-weight: 400;
+    font-size: 32px;
+    line-height: 1;
+}
+.card.hero-card .card-center .micro-suit {
+    font-size: 22px;
+    line-height: 1;
+    margin-top: 2px;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 900;
+}
+.card.hero-card .card-back { font-size: 26px; }
+
+/* Wrap remaining (non-hero) rows into a tighter sub-list */
+.showdown-rest {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+.showdown-rest .showdown-row { padding: 6px 10px; margin-bottom: 0; }
+
+/* Progress bar countdown — replaces the text "Auto-continue in Ns". */
+.showdown-progress {
+    width: 100%;
+    height: 2px;
+    background: rgba(225, 185, 89, 0.14);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 12px;
+}
+.showdown-progress .bar {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, var(--gold-light), var(--gold));
+    transform-origin: left center;
+    animation: showdownCountdown linear forwards;
+    animation-duration: 5s;
+}
+.showdown-progress.paused .bar { animation-play-state: paused; }
+@keyframes showdownCountdown {
+    from { transform: scaleX(1); }
+    to   { transform: scaleX(0); }
+}
+
 .showdown-player {
     display: flex;
     align-items: center;
@@ -1400,11 +1571,6 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
     box-shadow: var(--shadow-md);
 }
 #showdown-continue:hover { filter: brightness(1.05); }
-#showdown-countdown {
-    font-size: 11px;
-    color: var(--ink-faint);
-    letter-spacing: 0.4px;
-}
 
 @media (max-width: 500px) {
     #showdown-content { padding: 14px 14px; min-width: 0; }
@@ -1413,6 +1579,15 @@ button, select, input { touch-action: manipulation; font-family: inherit; }
     .showdown-player .sd-name { font-size: 12px; }
     .showdown-result .hand-name { font-size: 10px; }
     .showdown-result .award { font-size: 12px; }
+    .showdown-hero { padding: 12px 10px 10px; gap: 9px; }
+    .showdown-hero .hero-avatar { width: 44px; height: 44px; }
+    .showdown-hero .hero-avatar .avatar-suit { font-size: 22px; }
+    .showdown-hero .hero-name { font-size: 15px; }
+    .showdown-hero .hero-hand-name { font-size: 12.5px; }
+    .showdown-hero .hero-award-amount { font-size: 20px; }
+    .card.hero-card { width: 48px; height: 68px; }
+    .card.hero-card .card-center .micro-rank { font-size: 28px; }
+    .card.hero-card .card-center .micro-suit { font-size: 19px; }
 }
 
 /* ============================================================
@@ -2091,71 +2266,41 @@ body.mobile-portrait #top-bar {
     padding: 8px 10px;
 }
 body.mobile-portrait #message-text { display: none; }  /* moved to toast in Phase 3B; for now suppress */
-body.mobile-portrait #game-info { gap: 4px; font-size: 10px; }
-body.mobile-portrait #game-info .chip-tag { padding: 3px 7px; gap: 3px; }
-body.mobile-portrait #game-info .chip-tag .label { display: none; }
-body.mobile-portrait #game-info .chip-tag.next-blinds { display: none; }
+body.mobile-portrait #game-info { font-size: 10px; }
+body.mobile-portrait .info-pill { padding: 3px 9px; gap: 5px; }
+body.mobile-portrait .info-pill .info-segment { font-size: 10.5px; }
+body.mobile-portrait .info-pill .seg-hand,
+body.mobile-portrait .info-pill .seg-hand + .info-sep { display: none; }
+body.mobile-portrait .info-pill .info-next { display: none; }
 body.mobile-portrait .icon-btn { width: 34px; height: 34px; font-size: 14px; }
 body.mobile-portrait #stats-hint { display: none; }  /* not enough room; rely on the news dot */
 
-/* --- Table area: vertical flex column with three "rows" via order --- */
+/* --- Table area: keep the desktop oval polar layout, just portrait-tuned shape.
+   Crucially we do NOT set display:flex / order — that broke seats into a strip.
+   Seats absolute-position around the felt via TableRenderer._positionSeat,
+   which has its own portrait branch returning tighter [rx, ry]. --- */
 body.mobile-portrait #table-area {
-    display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-content: flex-start;
-    justify-content: center;
-    width: 100%;
-    max-width: 100vw;
-    aspect-ratio: auto;
-    max-height: none;
-    padding: 8px;
-    gap: 6px;
-    transform: none !important;
+    width: min(96vw, 600px);
+    aspect-ratio: 5 / 6;
+    max-height: calc(100dvh - 220px);
+    transform: none !important;  /* desktop adds translateY when action panel opens — disable */
     transition: none;
-    flex: 1 1 auto;
 }
 
-/* The felt oval becomes a horizontal "board strip" containing community + pot.
-   flex-basis: 100% forces it onto its own row between opponents and human.    */
+/* Drop the felt's noise + decorative ring at this small size; keep felt + rail. */
 body.mobile-portrait #poker-table {
-    position: static;
-    inset: auto;
-    width: 100%;
-    flex-basis: 100%;
-    border-radius: 14px;
-    background:
-        radial-gradient(ellipse 80% 60% at 50% 50%, var(--felt-top) 0%, var(--felt-mid) 70%, var(--felt-edge) 100%);
-    box-shadow:
-        inset 0 0 30px rgba(0,0,0,0.35),
-        inset 0 0 4px rgba(255,255,255,0.06),
-        0 0 0 3px var(--rail-inner),
-        0 0 0 5px var(--rail-gold),
-        0 6px 20px rgba(0,0,0,0.55);
-    padding: 10px 8px 14px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    order: 2;
-    min-height: 130px;
+    inset: 22px;
 }
 body.mobile-portrait #poker-table::before,
 body.mobile-portrait #poker-table::after {
-    display: none;  /* drop the noise + ring decorations — not needed at this size */
+    display: none;
 }
 
-/* Community cards row + pot, both static & centered */
-body.mobile-portrait #community-cards {
-    position: static;
-    transform: none;
-    gap: 4px;
-    z-index: auto;
-}
+/* Community cards + pot keep desktop absolute centering; only retune sizes. */
+body.mobile-portrait #community-cards { gap: 4px; }
 body.mobile-portrait .community-card-slot {
-    width: calc(34px * 1.0);
-    height: calc(48px * 1.0);
+    width: 34px;
+    height: 48px;
     border: none;
     background: rgba(0,0,0,0.18);
     border-radius: 5px;
@@ -2166,10 +2311,6 @@ body.mobile-portrait #community-cards .card {
     height: 48px;
     border-radius: 5px;
 }
-body.mobile-portrait #pot-display {
-    position: static;
-    transform: none;
-}
 body.mobile-portrait #pot-amount {
     font-size: 22px;
     text-shadow: 0 0 12px rgba(225,185,89,0.35), 0 2px 6px rgba(0,0,0,0.6);
@@ -2177,25 +2318,14 @@ body.mobile-portrait #pot-amount {
 body.mobile-portrait #pot-label { font-size: 9px; margin-top: 2px; }
 body.mobile-portrait #pot-chips { display: none; }  /* declutter — pot amount is enough */
 
-/* Opponents row — flex-wrapped, smaller seats with avatar + chips only.
-   `position: relative` keeps `.player-cards` (absolute, bottom: 100%) anchored
-   to its own seat instead of escaping all the way up to the body.
-   Seat width 65px so a 5-opponent table (6 players) fits all five in one row
-   on iPhone SE (375 - 16px padding = 359px → 5 × 65 + 4 × 6 = 349px). */
+/* Opponents: smaller seat pill on the felt edge. NO position/transform overrides —
+   TableRenderer's polar coords (with portrait branch in _tableRadii) work as-is.
+   Use a literal --seat-w to escape the global calc(... * var(--scale)) cascade. */
 body.mobile-portrait .player-seat:not(.human) {
-    position: relative !important;
-    left: auto !important;
-    top: auto !important;
-    transform: none !important;
-    order: 1;
-    width: auto;
-    --seat-w: 65px;
-    flex: 0 0 auto;
-    z-index: auto;
-    margin-top: 32px;  /* room for the floating hole cards above */
+    --seat-w: 62px;
 }
 body.mobile-portrait .player-seat:not(.human) .player-info {
-    width: 65px;
+    width: 62px;
     padding: 3px 5px 3px 3px;
     gap: 3px;
     border-radius: 999px;
@@ -2205,8 +2335,8 @@ body.mobile-portrait .player-seat:not(.human) .player-avatar {
     height: 22px;
     border-width: 1.5px;
 }
-body.mobile-portrait .player-seat:not(.human) .player-avatar .avatar-initial {
-    font-size: 10px;
+body.mobile-portrait .player-seat:not(.human) .player-avatar .avatar-suit {
+    font-size: 11px;
 }
 body.mobile-portrait .player-seat:not(.human) .player-name { display: none; }
 body.mobile-portrait .player-seat:not(.human) .player-chips {
@@ -2217,9 +2347,6 @@ body.mobile-portrait .player-seat:not(.human) .seat-chip-icon {
 }
 body.mobile-portrait .player-seat:not(.human) .seat-chip-stack {
     display: none;  /* declutter — show only the numeric chip count */
-}
-body.mobile-portrait .player-seat:not(.human) .thinking-indicator {
-    /* keep visible but reposition since seat is smaller */
 }
 body.mobile-portrait .player-seat:not(.human) .player-cards {
     bottom: calc(100% + 2px);
@@ -2236,7 +2363,7 @@ body.mobile-portrait .player-seat:not(.human) .player-cards .card.small .card-su
     font-size: 8px;
     margin-top: 0;
 }
-/* Action label appears below the seat — give it room */
+/* Action label sits just below the seat pill */
 body.mobile-portrait .player-seat:not(.human) .player-action-label {
     font-size: 9px;
     letter-spacing: 0.5px;
@@ -2249,22 +2376,8 @@ body.mobile-portrait .player-seat:not(.human) .player-action-label {
     text-shadow: 0 1px 2px rgba(0,0,0,0.7);
 }
 
-/* Human seat — bottom row, larger.  `position: relative` is required so the
-   absolutely-positioned hole cards float just above the seat pill, not the body. */
-body.mobile-portrait .player-seat.human {
-    position: relative !important;
-    left: auto !important;
-    top: auto !important;
-    transform: none !important;
-    order: 3;
-    flex-basis: 100%;
-    width: 100%;
-    align-self: center;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin-top: 80px;   /* room for the hovering large hole cards above */
-}
+/* Human seat — sits at theta=90° (bottom center of oval) via _positionSeat.
+   No layout overrides; only widen the seat pill and enlarge the hole cards. */
 body.mobile-portrait .player-seat.human .player-info {
     width: auto;
     min-width: 200px;
@@ -2285,11 +2398,23 @@ body.mobile-portrait .player-seat.human .player-cards .card.small .card-suit {
     font-size: 18px;
 }
 
-/* Hide chrome that doesn't fit / isn't needed in portrait */
-body.mobile-portrait .player-bet,
-body.mobile-portrait .dealer-button,
+/* Re-show dealer button + SB/BB labels + bet chips (they polar-position around the oval).
+   Tighten sizing so they don't dominate the smaller table. */
+body.mobile-portrait .dealer-button {
+    width: 18px;
+    height: 18px;
+    font-size: 9px;
+    border-width: 1.5px;
+}
 body.mobile-portrait .position-label {
-    display: none !important;
+    font-size: 8px;
+    padding: 1px 4px;
+    letter-spacing: 0.5px;
+}
+body.mobile-portrait .player-bet {
+    font-size: 10px;
+    padding: 2px 6px;
+    gap: 3px;
 }
 
 /* --- Action panel: docked at bottom, full-width sheet --- */
